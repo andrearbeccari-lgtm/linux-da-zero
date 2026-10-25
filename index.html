@@ -1,0 +1,2711 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Linux da zero</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: barra superiore con ricerca, indice a sinistra, testo centrale (~72 caratteri), pannello comandi che scorre da destra */
+:root {
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --surface-2: #e9ecf1;
+  --fg: #1a2030;
+  --muted: #586172;
+  --line: #d9dee6;
+  --accent: #a8234b;
+  --accent-soft: #f6e3ea;
+  --code-bg: #1c2130;
+  --code-bar: #262c3d;
+  --code-fg: #e5e9f0;
+  --code-dim: #8d97ab;
+  --code-adapt: #f2b84b;
+  --out-bg: #e8ebf0;
+  --out-fg: #283040;
+  --tip: #17694c; --tip-bg: #e3f2eb; --tip-line: #b6dccb;
+  --warn: #855600; --warn-bg: #fcf0d6; --warn-line: #edd096;
+  --danger: #a5281e; --danger-bg: #fbe6e3; --danger-line: #efbab3;
+  --mac: #33508e; --mac-bg: #e7ecf8; --mac-line: #c1cdea;
+  --hit: #ffd966; --hit-fg: #1a2030;
+  --shadow: 0 10px 30px rgba(20, 26, 40, .14);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  --top: 60px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11141b; --surface: #181c26; --surface-2: #222836; --fg: #e3e7ee; --muted: #9ba4b4; --line: #2b3240;
+    --accent: #ec7393; --accent-soft: #3a1e29;
+    --code-bg: #0b0e14; --code-bar: #161a24; --code-fg: #e5e9f0; --code-dim: #7f899d;
+    --out-bg: #1e2330; --out-fg: #d0d6e0;
+    --tip: #6ccaa1; --tip-bg: #13261e; --tip-line: #24493a;
+    --warn: #e8b04c; --warn-bg: #2a2112; --warn-line: #4f3d1c;
+    --danger: #f2837a; --danger-bg: #2d1715; --danger-line: #5a2c27;
+    --mac: #9bb2ea; --mac-bg: #19213a; --mac-line: #2f3d66;
+    --hit: #7a6214; --hit-fg: #fff6d6;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11141b; --surface: #181c26; --surface-2: #222836; --fg: #e3e7ee; --muted: #9ba4b4; --line: #2b3240;
+  --accent: #ec7393; --accent-soft: #3a1e29;
+  --code-bg: #0b0e14; --code-bar: #161a24; --code-fg: #e5e9f0; --code-dim: #7f899d;
+  --out-bg: #1e2330; --out-fg: #d0d6e0;
+  --tip: #6ccaa1; --tip-bg: #13261e; --tip-line: #24493a;
+  --warn: #e8b04c; --warn-bg: #2a2112; --warn-line: #4f3d1c;
+  --danger: #f2837a; --danger-bg: #2d1715; --danger-line: #5a2c27;
+  --mac: #9bb2ea; --mac-bg: #19213a; --mac-line: #2f3d66;
+  --hit: #7a6214; --hit-fg: #fff6d6;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 17px/1.65 var(--f-body);
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 25; background: var(--surface);
+}
+a { color: var(--accent); text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+button { font: inherit; color: inherit; }
+
+/* ---------- Barra superiore ---------- */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30;
+  height: var(--top);
+  display: flex; align-items: center; gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  display: flex; align-items: baseline; gap: 8px; white-space: nowrap;
+  font: 700 19px/1 var(--f-display); color: var(--fg); text-decoration: none;
+  width: 266px; flex: none;
+}
+.brand small { font: 600 11px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.icon-btn {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 40px; min-width: 40px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface); cursor: pointer;
+  font-weight: 700; font-size: 15px;
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+.icon-btn svg { width: 18px; height: 18px; }
+#menuBtn { display: none; padding: 0; }
+.search { position: relative; flex: 1; min-width: 0; max-width: 600px; }
+.search svg { position: absolute; left: 12px; top: 11px; width: 18px; height: 18px; color: var(--muted); pointer-events: none; }
+.search input {
+  width: 100%; height: 40px; padding: 0 44px 0 38px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); color: var(--fg); font: 16px var(--f-body);
+}
+.search input::placeholder { color: var(--muted); }
+.search kbd {
+  position: absolute; right: 10px; top: 9px; padding: 1px 7px;
+  font: 600 12px/20px var(--f-mono); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+}
+.results {
+  position: absolute; top: 48px; left: 0;
+  width: min(620px, calc(100vw - 32px)); max-height: min(72vh, 580px); overflow: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 6px;
+}
+.results .grp { font: 600 11.5px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 12px 12px 6px; }
+.res {
+  display: block; width: 100%; text-align: left; padding: 9px 12px; border: 0; border-radius: 8px;
+  background: none; cursor: pointer;
+}
+.res.sel, .res:hover { background: var(--surface-2); }
+.res .t { display: block; font-weight: 700; }
+.res .w { display: block; font-size: 13px; color: var(--muted); }
+.res .s { display: block; font-size: 14.5px; color: var(--muted); line-height: 1.45; margin-top: 2px; }
+.res code { font: 600 14px var(--f-mono); color: var(--accent); }
+.results .empty { padding: 14px 12px; color: var(--muted); }
+mark { background: var(--hit); color: var(--hit-fg); border-radius: 3px; padding: 0 1px; }
+
+.progress { position: fixed; top: env(safe-area-inset-top, 0px); left: 0; right: 0; height: 3px; z-index: 31; pointer-events: none; }
+.progress span { display: block; height: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(0); }
+
+/* ---------- Struttura ---------- */
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); }
+.sidebar {
+  position: sticky; top: calc(var(--top) + env(safe-area-inset-top, 0px));
+  height: calc(100dvh - var(--top) - env(safe-area-inset-top, 0px));
+  overflow-y: auto; overscroll-behavior: contain;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 14px;
+  border-right: 1px solid var(--line); background: var(--bg);
+  font-size: 15px;
+}
+.toc-part {
+  margin: 22px 0 6px; padding-left: 10px;
+  font: 600 11.5px/1.2 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+.toc-part:first-child { margin-top: 0; }
+.toc a { display: block; text-decoration: none; color: var(--fg); border-radius: 8px; }
+.toc-chap { display: flex !important; gap: 10px; padding: 6px 10px; font-weight: 700; line-height: 1.35; }
+.toc-chap .n { flex: none; width: 1.6em; color: var(--accent); font-variant-numeric: tabular-nums; }
+.toc-secs { display: none; margin: 2px 0 8px; padding-left: 30px; }
+.toc-group.open .toc-secs { display: block; }
+.toc-secs a { padding: 4px 10px; color: var(--muted); line-height: 1.35; font-size: 14.5px; }
+.toc a:hover { background: var(--surface-2); color: var(--fg); }
+.toc a.active { background: var(--accent-soft); color: var(--accent); }
+
+.main {
+  min-width: 0;
+  padding-block: 8px 120px;
+  padding-left: max(40px, env(safe-area-inset-left, 0px));
+  padding-right: max(40px, env(safe-area-inset-right, 0px));
+}
+.doc { max-width: 46rem; margin: 0 auto; }
+.doc > hr { display: none; }
+.doc [id], .doc .code { scroll-margin-top: calc(var(--top) + env(safe-area-inset-top, 0px) + 20px); }
+
+/* ---------- Tipografia del manuale ---------- */
+.doc p, .doc li { max-width: 70ch; }
+.doc ul, .doc ol { padding-left: 1.4em; }
+.doc li { margin: 4px 0; }
+.doc li > p { margin: 6px 0; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.2; }
+.hero { padding-block: 44px 8px; }
+.hero h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 700; margin: 0 0 6px; letter-spacing: -.01em; }
+.hero .edition { margin: 0 0 22px; font: 600 13px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.hero .edition em { font-style: normal; }
+.hero p { font-size: 18.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  color: var(--fg); text-decoration: none; font-weight: 700; font-size: 15px; cursor: pointer;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.chip.primary:hover { color: var(--surface); filter: brightness(1.08); }
+
+h1.part {
+  margin: 96px 0 0; padding: 22px 24px; border-radius: 14px;
+  background: var(--surface-2); font-size: 30px; font-weight: 700;
+}
+h1.part .lbl { display: block; margin-bottom: 6px; font: 600 12px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.doc h2 {
+  display: flex; align-items: baseline; gap: 14px;
+  margin: 64px 0 18px; padding-top: 26px; border-top: 1px solid var(--line);
+  font-size: 30px; font-weight: 700;
+}
+h1.part + h2 { border-top: 0; margin-top: 28px; }
+.doc h2 .num { flex: none; font-size: 1.35em; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }
+.doc h3 { margin: 40px 0 10px; font-size: 21.5px; font-weight: 700; }
+.doc h2 code, .doc h3 code { font-size: .85em; }
+.doc strong { font-weight: 700; }
+
+:not(pre) > code {
+  font-family: var(--f-mono); font-size: .86em; padding: .08em .38em; border-radius: 5px;
+  background: var(--surface-2); overflow-wrap: anywhere;
+}
+
+/* ---------- Blocchi di codice ---------- */
+.code { margin: 16px 0; border-radius: 10px; overflow: hidden; }
+.code pre { margin: 0; padding: 14px 16px; overflow-x: auto; font: 14.5px/1.6 var(--f-mono); tab-size: 4; }
+.code pre code { font: inherit; background: none; padding: 0; }
+.code.is-cmd { background: var(--code-bg); color: var(--code-fg); }
+.code.is-cmd .c { color: var(--code-dim); font-style: italic; }
+.code .bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 5px 8px 5px 14px; background: var(--code-bar); color: var(--code-dim);
+  font: 600 11.5px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase;
+}
+.copy {
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--code-dim); background: transparent; color: var(--code-fg);
+  font: 600 12px/1 var(--f-mono); letter-spacing: .04em;
+}
+.copy:hover { border-color: var(--code-fg); }
+.code.is-adapt .bar span { color: var(--code-adapt); }
+.adapt-note { padding: 2px 14px 10px; background: var(--code-bar); color: var(--code-fg); font: 14.5px/1.45 var(--f-body); }
+.adapt-note strong { color: var(--code-adapt); }
+.tag {
+  display: inline-block; margin-right: 6px; padding: 0 7px; border-radius: 999px;
+  border: 1px solid var(--warn-line); background: var(--warn-bg); color: var(--warn);
+  font: 600 10.5px/1.6 var(--f-mono); letter-spacing: .05em; text-transform: uppercase; vertical-align: 1px;
+}
+.code.is-out { background: var(--out-bg); color: var(--out-fg); border: 1px solid var(--line); }
+.callout .code.is-out { background: var(--surface); }
+
+/* ---------- Tabelle ---------- */
+.table-wrap { overflow-x: auto; margin: 18px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.table-wrap table { border-collapse: collapse; width: 100%; font-size: 15.5px; line-height: 1.5; }
+.table-wrap th, .table-wrap td { padding: 9px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.table-wrap th { background: var(--surface-2); font-weight: 700; }
+.table-wrap th, .table-wrap td { min-width: 8.5rem; }
+.table-wrap th[align="center"], .table-wrap td[align="center"] { min-width: 4rem; }
+.table-wrap tr:last-child td { border-bottom: 0; }
+.table-wrap td[align="center"], .table-wrap th[align="center"] { text-align: center; }
+
+/* ---------- Riquadri ---------- */
+.doc blockquote { margin: 20px 0; padding: 2px 18px; border-left: 3px solid var(--line); color: var(--muted); }
+.callout { padding: 12px 18px !important; border: 1px solid; border-radius: 12px; color: var(--fg) !important; }
+.callout > p:first-child { margin-top: 2px; }
+.callout > :last-child { margin-bottom: 2px; }
+.callout .table-wrap { background: var(--surface); }
+.callout.tip { background: var(--tip-bg); border-color: var(--tip-line); }
+.callout.warn { background: var(--warn-bg); border-color: var(--warn-line); }
+.callout.danger { background: var(--danger-bg); border-color: var(--danger-line); }
+.callout.mac { background: var(--mac-bg); border-color: var(--mac-line); }
+.callout.tip > p:first-child > strong:first-child { color: var(--tip); }
+.callout.warn > p:first-child > strong:first-child { color: var(--warn); }
+.callout.danger > p:first-child > strong:first-child { color: var(--danger); }
+.callout.mac > p:first-child > strong:first-child { color: var(--mac); }
+.flag { list-style: none; position: relative; }
+.flag::before { content: ""; position: absolute; left: -1.1em; top: .62em; width: .55em; height: .55em; border-radius: 50%; }
+.flag.danger::before { background: var(--danger); }
+.flag.warn::before { background: var(--warn); }
+.flag.tip::before { background: var(--tip); }
+
+/* ---------- Esercizi ---------- */
+.exercise {
+  margin: 36px 0; padding: 4px 22px 14px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.exercise h3 { margin-top: 16px; font-size: 19px; }
+.exercise h3::before {
+  content: "Esercizio"; display: block; margin-bottom: 4px;
+  font: 600 11.5px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent);
+}
+.exercise details { margin-top: 6px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.exercise summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+.exercise details ol { margin-bottom: 4px; }
+
+/* ---------- Indice iniziale ---------- */
+.index-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr)); gap: 14px; margin: 10px 0 8px; }
+.index-card { min-width: 0; padding: 14px 16px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.index-card > p { margin: 0 0 6px; font: 600 12px/1.3 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.index-card > p strong { font-weight: 600; }
+.index-card ol { margin: 0; padding-left: 1.6em; font-size: 15.5px; }
+.index-card li { margin: 3px 0; }
+.index-card li::marker { color: var(--muted); font-variant-numeric: tabular-nums; }
+.index-card a { color: var(--fg); text-decoration: none; }
+.index-card a:hover { color: var(--accent); text-decoration: underline; }
+.index-extra { margin: 4px 0 0; font-size: 15.5px; }
+
+/* ---------- Pannello comandi ---------- */
+.panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+  width: min(480px, 100%); display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow);
+}
+.panel-head {
+  display: grid; gap: 10px; padding-block: 16px 12px; border-bottom: 1px solid var(--line);
+  padding-left: 18px; padding-right: max(18px, env(safe-area-inset-right, 0px));
+}
+.panel-head .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.panel-head h2 { margin: 0; font: 700 22px/1.2 var(--f-display); }
+.panel-head input {
+  width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); color: var(--fg); font: 16px var(--f-body);
+}
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg button {
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  cursor: pointer; font-size: 14px; font-weight: 700;
+}
+.seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.panel-head .count { font-size: 13px; color: var(--muted); }
+.panel-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding-left: 10px; padding-right: max(10px, env(safe-area-inset-right, 0px)); padding-bottom: 30px; }
+.cmd-grp { position: sticky; top: 0; z-index: 1; padding: 12px 8px 6px; background: var(--surface); font: 600 11.5px/1.3 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cmd-row { display: flex; gap: 6px; align-items: flex-start; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.cmd-row .jump { flex: 1; min-width: 0; text-align: left; padding: 7px 8px; border: 0; border-radius: 8px; background: none; cursor: pointer; }
+.cmd-row .jump:hover { background: var(--surface-2); }
+.cmd-row code { display: block; font: 600 14px/1.45 var(--f-mono); color: var(--accent); overflow-wrap: anywhere; background: none; padding: 0; }
+.cmd-row .d { display: block; font-size: 15px; line-height: 1.4; margin-top: 2px; }
+.cmd-row .w { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.cmd-row .copy-sm {
+  flex: none; margin-top: 7px; padding: 5px 9px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); font: 600 12px/1 var(--f-mono); color: var(--muted);
+}
+.cmd-row .copy-sm:hover { color: var(--accent); border-color: var(--accent); }
+.scrim { position: fixed; inset: 0; z-index: 45; background: rgba(10, 14, 22, .45); }
+
+.totop {
+  position: fixed; z-index: 20;
+  right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--surface); box-shadow: var(--shadow); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.totop svg { width: 20px; height: 20px; }
+
+.flash { animation: flash 1.8s ease-out; border-radius: 10px; }
+@keyframes flash { 0%, 30% { box-shadow: 0 0 0 4px var(--hit); } 100% { box-shadow: 0 0 0 4px transparent; } }
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; outline: 3px solid var(--hit); } }
+
+/* ---------- Schermi stretti ---------- */
+@media (max-width: 960px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  #menuBtn { display: inline-flex; }
+  .brand { width: auto; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; height: auto;
+    width: min(330px, 88vw); padding-top: calc(20px + env(safe-area-inset-top, 0px));
+    transform: translateX(-102%); transition: transform .22s ease; box-shadow: var(--shadow);
+    background: var(--surface);
+  }
+  .sidebar.open { transform: none; }
+  .main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+}
+@media (max-width: 640px) {
+  .brand small, .search kbd, .cmd-label { display: none; }
+  .brand { font-size: 17px; }
+  .topbar { gap: 8px; }
+  .doc h2 { font-size: 25px; gap: 10px; }
+  h1.part { font-size: 25px; padding: 18px; }
+  .exercise { padding: 4px 16px 12px; }
+  .code pre { font-size: 13.5px; }
+}
+@media (prefers-reduced-motion: reduce) { .sidebar { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+<header class="topbar">
+  <button class="icon-btn" id="menuBtn" type="button" aria-label="Apri l'indice" aria-controls="toc" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <a class="brand" href="#inizio">Linux da zero <small>Debian</small></a>
+  <div class="search" role="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Cerca un comando o un argomento…" aria-label="Cerca nel manuale" aria-controls="results">
+    <kbd>/</kbd>
+    <div class="results" id="results" role="listbox" hidden></div>
+  </div>
+  <button class="icon-btn" id="cmdBtn" type="button" aria-controls="cmdPanel" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 4 4-4 4M12 17h7"/></svg>
+    <span class="cmd-label">Comandi</span>
+  </button>
+</header>
+<div class="layout">
+  <nav class="sidebar" id="toc" aria-label="Indice del manuale"><div class="toc" id="tocInner"></div></nav>
+  <main class="main" id="inizio">
+    <article class="doc" id="doc">
+<h1>Linux da zero: il manuale dei primi passi</h1>
+<p><em>Edizione per Debian</em></p>
+<p>Benvenuto! Questo manuale è pensato per chi non ha <strong>mai</strong> usato Linux né aperto un terminale. Si parte dalle basi: come aprire il terminale, come muoversi tra le cartelle, come creare e cancellare file. Poi si passa all&#39;installazione dei programmi, ai permessi e ai processi, e infine alla personalizzazione. Ogni capitolo si appoggia solo su ciò che è stato spiegato prima.</p>
+<p>Il consiglio più importante: <strong>leggi con il terminale aperto e prova ogni comando</strong>. Linux si impara con le dita, non con gli occhi.</p>
+<hr>
+<h2>Indice</h2>
+<p><strong>Parte I — Primi passi</strong></p>
+<ol>
+<li>Prima di iniziare</li>
+<li>Sette concetti fondamentali</li>
+<li>Terminale, shell e prompt</li>
+<li>Muoversi tra le cartelle</li>
+<li>Lavorare con file e cartelle</li>
+<li>La tua prima sessione guidata</li>
+</ol>
+<p><strong>Parte II — Usare il sistema</strong>
+7. L&#39;amministratore e il comando <code>sudo</code>
+8. Installare programmi con <code>apt</code>
+9. Cercare file e testo
+10. Permessi e proprietà
+11. Processi, memoria e disco
+12. Rete e download
+13. Archivi compressi</p>
+<p><strong>Parte III — Andare oltre</strong>
+14. Personalizzare la shell: alias e variabili
+15. Quando qualcosa va storto
+16. Riepilogo: &quot;Cosa voglio fare?&quot;
+17. Prossimi passi</p>
+<p>Appendice A — Soluzioni degli esercizi</p>
+<hr>
+<h1>Parte I — Primi passi</h1>
+<h2>1. Prima di iniziare</h2>
+<h3>1.1 Come leggere questo manuale</h3>
+<p><strong>I comandi</strong> sono scritti in blocchi come questo. Si digitano così come sono e si conferma con <strong>Invio</strong>:</p>
+<pre><code class="language-bash">echo Ciao
+</code></pre>
+<p><strong>Il risultato</strong> che il comando mostra a video è riportato in un blocco separato, chiamato <em>Risultato atteso</em>:</p>
+<pre><code class="language-text">Ciao
+</code></pre>
+<p>Alcune convenzioni da conoscere:</p>
+<ul>
+<li>Le righe che iniziano con <code>#</code> dentro un blocco di comandi sono <strong>commenti</strong>: spiegano cosa succede e <strong>non vanno digitate</strong>.</li>
+<li>Le parole tra parentesi angolari, come <code>&lt;nomefile&gt;</code>, sono <strong>segnaposto</strong>: vanno sostituite con un nome vero, <strong>togliendo anche le parentesi</strong>. Esempio: <code>cat &lt;nomefile&gt;</code> diventa <code>cat appunti.txt</code>.</li>
+<li>Gli esempi sono di due tipi:<ul>
+<li><strong>da provare</strong>: si eseguono così come sono, purché tu abbia seguito i passi precedenti dello stesso capitolo. Quando servono dei file, un blocco di <strong>preparazione</strong> li crea prima;</li>
+<li><strong>da adattare</strong>: sono schemi che contengono un nome, un numero o un indirizzo da sostituire con il tuo. Iniziano sempre con il commento <code># Da adattare:</code>, che dice cosa cambiare.</li>
+</ul>
+</li>
+<li>Negli esempi l&#39;utente si chiama <strong><code>mario</code></strong> e il computer <strong><code>debian</code></strong>. Sul tuo sistema vedrai il tuo nome utente.</li>
+<li>Se il tuo sistema è in italiano, molti messaggi appariranno in italiano; in questo manuale, dove serve, li riportiamo in entrambe le lingue.</li>
+</ul>
+<p>I riquadri hanno tre significati:</p>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> un trucco che ti fa risparmiare tempo.</p>
+</blockquote>
+<blockquote>
+<p>⚠️ <strong>Attenzione:</strong> un punto dove i principianti sbagliano spesso.</p>
+</blockquote>
+<blockquote>
+<p>🛑 <strong>Pericolo:</strong> un&#39;operazione che può cancellare dati o danneggiare il sistema.</p>
+</blockquote>
+<blockquote>
+<p>🍎 <strong>Su Mac:</strong> come cambiano i tasti se usi Debian in una macchina virtuale su un Mac (vedi la sezione 1.4).</p>
+</blockquote>
+<h3>1.2 Dove fare pratica</h3>
+<p>Per imparare ti serve un Debian su cui fare esperimenti senza paura di rompere qualcosa. Hai quattro strade:</p>
+<table>
+<thead>
+<tr>
+<th align="left">Soluzione</th>
+<th align="left">Per chi è adatta</th>
+<th align="left">Come si fa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>WSL su Windows</strong></td>
+<td align="left">Chi ha un PC Windows 10/11 e vuole iniziare subito</td>
+<td align="left">Apri PowerShell come amministratore, digita <code>wsl --install -d Debian</code>, riavvia, poi apri &quot;Debian&quot; dal menu Start e scegli nome utente e password.</td>
+</tr>
+<tr>
+<td align="left"><strong>Macchina virtuale</strong></td>
+<td align="left">Chi vuole Debian completo, con la grafica, dentro una finestra</td>
+<td align="left">Installa un programma di virtualizzazione (VirtualBox su PC; UTM, Parallels o VMware Fusion su Mac), scarica l&#39;immagine ISO da <code>debian.org</code> e installala nella macchina virtuale.</td>
+</tr>
+<tr>
+<td align="left"><strong>Chiavetta &quot;live&quot;</strong></td>
+<td align="left">Chi vuole provare Debian sul proprio PC senza installarlo</td>
+<td align="left">Scarica l&#39;immagine <em>live</em> da <code>debian.org</code> e <strong>scrivila</strong> sulla chiavetta con un programma apposito: non basta trascinare il file, e l&#39;operazione cancella tutto il contenuto della chiavetta. La procedura è descritta su <code>wiki.debian.org/DebianInstaller/CreateUSBMedia</code>. Poi avvia il PC dalla chiavetta. Le modifiche si perdono allo spegnimento. Non funziona sui Mac con chip Apple.</td>
+</tr>
+<tr>
+<td align="left"><strong>Debian già installato</strong></td>
+<td align="left">Chi ha già un PC con Debian</td>
+<td align="left">Niente da fare: apri il terminale.</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> per i primi esperimenti WSL e la macchina virtuale sono le scelte migliori: se qualcosa si rompe dentro Debian, nel peggiore dei casi lo reinstalli in pochi minuti.</p>
+</blockquote>
+<blockquote>
+<p>⚠️ <strong>Attenzione:</strong> l&#39;isolamento non è totale. Da WSL puoi modificare e cancellare i file di Windows attraverso <code>/mnt/c</code>; da una macchina virtuale, i file del Mac che hai condiviso con Debian (vedi la sezione 1.4). Durante le prove lavora solo nella cartella di prova <code>palestra</code>, che creerai nel capitolo 5.</p>
+</blockquote>
+<blockquote>
+<p>⚠️ <strong>Attenzione (solo WSL):</strong> in WSL la cartella personale è vuota, mancano cartelle come <code>Documenti</code> o <code>Scaricati</code>, e non c&#39;è un desktop grafico. I comandi però sono identici. I file di Windows si trovano in <code>/mnt/c</code> (il disco <code>C:</code>).</p>
+</blockquote>
+<h3>1.3 Aprire (e chiudere) il terminale</h3>
+<ul>
+<li><strong>Debian con desktop GNOME</strong> (quello predefinito): premi il tasto <strong>Windows</strong> (su Linux si chiama <em>Super</em>), scrivi <code>Terminale</code> e premi <strong>Invio</strong>.</li>
+<li><strong>Debian con KDE</strong>: cerca <strong>Konsole</strong> nel menu.</li>
+<li><strong>Debian con XFCE</strong>: cerca <strong>Terminale</strong> nel menu Applicazioni.</li>
+<li><strong>WSL</strong>: apri <strong>Debian</strong> dal menu Start di Windows.</li>
+<li><strong>Debian in una macchina virtuale su Mac</strong>: fai clic dentro la finestra della macchina virtuale, premi <strong>Command (⌘)</strong>, che per Linux è il tasto <em>Super</em>, scrivi <code>Terminale</code> e premi <strong>Invio</strong>.</li>
+</ul>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> in GNOME, quando il terminale è aperto, fai clic destro sulla sua icona nella barra e scegli <strong>Aggiungi ai preferiti</strong>: lo ritroverai sempre lì.</p>
+</blockquote>
+<p>Si apre una finestra con una riga di testo e un cursore che lampeggia. Quella riga si chiama <strong>prompt</strong> e significa &quot;sono pronto, dimmi cosa fare&quot;. La vedremo nel dettaglio nel capitolo 3.</p>
+<p>Per chiudere il terminale digita <code>exit</code> e premi <strong>Invio</strong>, oppure premi <strong>Ctrl + D</strong>.</p>
+<h3>1.4 Se usi Debian in una macchina virtuale su Mac</h3>
+<p>Questo manuale è scritto con i tasti di un PC. Se usi Debian dentro una macchina virtuale (UTM, Parallels, VMware Fusion o VirtualBox) su un Mac con tastiera italiana, leggi questa sezione: qui trovi come &quot;tradurre&quot; i tasti.</p>
+<p><strong>Quale tasto del Mac corrisponde a quale tasto del PC</strong></p>
+<table>
+<thead>
+<tr>
+<th align="left">Tasto del manuale (PC)</th>
+<th align="left">Tasto da premere sul Mac</th>
+<th align="left">Nota</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>Ctrl</strong></td>
+<td align="left"><strong>Control (⌃)</strong></td>
+<td align="left">⚠️ <strong>Non</strong> Command (⌘). Ogni volta che il manuale dice Ctrl, usa Control.</td>
+</tr>
+<tr>
+<td align="left"><strong>Alt</strong></td>
+<td align="left"><strong>Option (⌥)</strong></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left"><strong>AltGr</strong></td>
+<td align="left"><strong>Option (⌥)</strong></td>
+<td align="left">serve per i simboli come <code>@</code>, <code>#</code>, <code>[</code></td>
+</tr>
+<tr>
+<td align="left"><strong>Super</strong> (tasto Windows)</td>
+<td align="left"><strong>Command (⌘)</strong></td>
+<td align="left">apre la ricerca delle applicazioni in GNOME</td>
+</tr>
+<tr>
+<td align="left"><strong>Backspace</strong> (cancella a sinistra)</td>
+<td align="left"><strong>Delete (⌫)</strong></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left"><strong>Canc</strong> (cancella a destra)</td>
+<td align="left"><strong>fn + Delete</strong></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left"><strong>F1 … F12</strong></td>
+<td align="left"><strong>fn + F1 … fn + F12</strong></td>
+<td align="left">sui Mac i tasti F di solito regolano luminosità e volume</td>
+</tr>
+<tr>
+<td align="left"><strong>Home / Fine</strong></td>
+<td align="left"><strong>fn + freccia sinistra / destra</strong></td>
+<td align="left">inizio e fine della riga</td>
+</tr>
+<tr>
+<td align="left"><strong>Pagina su / giù</strong></td>
+<td align="left"><strong>fn + freccia su / giù</strong></td>
+<td align="left"></td>
+</tr>
+</tbody></table>
+<p>Esempi: <strong>Ctrl + C</strong> diventa <strong>Control + C</strong>; copiare nel terminale (<strong>Ctrl + Shift + C</strong>) diventa <strong>Control + Shift + C</strong>; uscire da <code>htop</code> con <strong>F10</strong> diventa <strong>fn + F10</strong>.</p>
+<blockquote>
+<p>⚠️ <strong>Attenzione:</strong> alcuni programmi di virtualizzazione (per esempio Parallels) possono &quot;tradurre&quot; in automatico <strong>Command + C</strong> in <strong>Ctrl + C</strong>. Nel terminale questo <strong>interrompe</strong> il comando invece di copiare. Nel terminale usa sempre <strong>Control + Shift + C / V</strong>.</p>
+</blockquote>
+<p><strong>Scegliere la disposizione della tastiera giusta in Debian</strong></p>
+<p>Debian deve sapere che stai usando una tastiera Mac, altrimenti alcuni simboli non corrispondono a quelli stampati sui tasti. In GNOME:</p>
+<ol>
+<li>Apri <strong>Impostazioni</strong> → <strong>Tastiera</strong>.</li>
+<li>In <strong>Sorgenti di input</strong> aggiungi <strong>Italiano (Macintosh)</strong> e spostala in cima all&#39;elenco (o rimuovi le altre).</li>
+<li>Fai clic sui tre puntini accanto alla sorgente e scegli <strong>Visualizza disposizione tastiera</strong>: compare un disegno della tastiera con tutti i simboli. È il modo più sicuro per scoprire come digitare un simbolo.</li>
+</ol>
+<p><strong>I simboli difficili sulla tastiera Mac italiana</strong></p>
+<p>Con la disposizione <strong>Italiano (Macintosh)</strong> i simboli si digitano come su macOS:</p>
+<table>
+<thead>
+<tr>
+<th align="center">Simbolo</th>
+<th align="left">Nome</th>
+<th align="left">Sul Mac (tastiera italiana)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>~</code></td>
+<td align="left">tilde</td>
+<td align="left">Option + 5</td>
+</tr>
+<tr>
+<td align="center"><code>|</code></td>
+<td align="left">barra verticale (pipe)</td>
+<td align="left">Shift + <code>\</code></td>
+</tr>
+<tr>
+<td align="center"><code>#</code></td>
+<td align="left">cancelletto</td>
+<td align="left">Option + à</td>
+</tr>
+<tr>
+<td align="center"><code>@</code></td>
+<td align="left">chiocciola</td>
+<td align="left">Option + ò</td>
+</tr>
+<tr>
+<td align="center"><code>[</code> <code>]</code></td>
+<td align="left">parentesi quadre</td>
+<td align="left">Option + è / Option + +</td>
+</tr>
+<tr>
+<td align="center"><code>{</code> <code>}</code></td>
+<td align="left">parentesi graffe</td>
+<td align="left">Option + Shift + è / Option + Shift + +</td>
+</tr>
+<tr>
+<td align="center"><code>`</code></td>
+<td align="left">apice inverso</td>
+<td align="left">Option + <code>\</code></td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> le combinazioni possono cambiare leggermente tra modelli di Mac e tra programmi di virtualizzazione. Se un simbolo non esce, controllalo nel disegno di <strong>Visualizza disposizione tastiera</strong> (punto 3 qui sopra).</p>
+</blockquote>
+<p><strong>Il mouse &quot;intrappolato&quot; nella macchina virtuale</strong></p>
+<p>Quando fai clic dentro la macchina virtuale, il puntatore a volte non riesce più a uscire. Per liberarlo, di solito:</p>
+<table>
+<thead>
+<tr>
+<th align="left">Programma</th>
+<th align="left">Tasti per liberare il puntatore</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">UTM</td>
+<td align="left">Control + Option</td>
+</tr>
+<tr>
+<td align="left">Parallels Desktop</td>
+<td align="left">Control + Option</td>
+</tr>
+<tr>
+<td align="left">VMware Fusion</td>
+<td align="left">Control + Command</td>
+</tr>
+<tr>
+<td align="left">VirtualBox</td>
+<td align="left">Command sinistro (il tasto <em>Host</em>)</td>
+</tr>
+</tbody></table>
+<p><strong>Copiare e incollare tra macOS e Debian</strong></p>
+<p>Per copiare testo da macOS a Debian e viceversa, la macchina virtuale deve avere installati gli &quot;strumenti ospite&quot;:</p>
+<ul>
+<li><strong>UTM</strong>: il pacchetto <code>spice-vdagent</code> (<code>sudo apt install spice-vdagent</code>, poi riavvia);</li>
+<li><strong>Parallels</strong>: <em>Parallels Tools</em> (menu <strong>Azioni</strong> → <strong>Installa Parallels Tools</strong>);</li>
+<li><strong>VMware Fusion</strong>: il pacchetto <code>open-vm-tools-desktop</code>;</li>
+<li><strong>VirtualBox</strong>: le <em>Guest Additions</em> (menu <strong>Dispositivi</strong> → <strong>Inserisci l&#39;immagine del CD delle Guest Additions</strong>).</li>
+</ul>
+<p>Senza questi strumenti il copia/incolla funziona solo dentro Debian.</p>
+<blockquote>
+<p>⚠️ <strong>Attenzione — cartelle condivise:</strong> gli strumenti ospite possono anche rendere visibili dentro Debian alcune cartelle del Mac (con Parallels, per esempio, compaiono sotto <code>/media/psf</code>). Lì i comandi agiscono sui <strong>file veri del Mac</strong>: un <code>rm</code> li cancella davvero. Durante le prove resta nella cartella <code>palestra</code> (capitolo 5).</p>
+</blockquote>
+<blockquote>
+<p>💡 <strong>Mac con chip Apple (M1, M2, M3, M4…):</strong> scarica l&#39;immagine di Debian per l&#39;architettura <strong>arm64</strong> (o <em>aarch64</em>), non quella <strong>amd64</strong>. Sui Mac con processore Intel serve invece la versione <strong>amd64</strong>.</p>
+</blockquote>
+<hr>
+<h2>2. Sette concetti fondamentali</h2>
+<p>Se arrivi da Windows o macOS, queste sette idee ti eviteranno la maggior parte delle frustrazioni iniziali.</p>
+<h3>2.1 Maiuscole e minuscole sono diverse</h3>
+<p>Per Linux <code>Documento.txt</code>, <code>documento.txt</code> e <code>DOCUMENTO.TXT</code> sono <strong>tre file diversi</strong>, che possono stare nella stessa cartella.</p>
+<p>Anche i comandi vanno scritti esattamente come sono: quasi sempre <strong>tutto in minuscolo</strong>. <code>ls</code> funziona, <code>LS</code> no.</p>
+<h3>2.2 Niente lettere di unità: esiste un solo albero</h3>
+<p>In Windows ogni disco ha una lettera (<code>C:\</code>, <code>D:\</code>). In Linux tutto parte da <strong>un&#39;unica cartella principale</strong>, indicata con una barra obliqua: <strong><code>/</code></strong>. Tutto il resto, comprese chiavette USB e dischi esterni, è un ramo di questo albero:</p>
+<pre><code class="language-text">/                    ← la cartella principale, da cui parte tutto
+├── home/            ← le cartelle personali degli utenti
+│   └── mario/       ← la TUA cartella personale (la &quot;home&quot;)
+│       ├── Documenti/
+│       └── Scaricati/
+├── etc/             ← i file di configurazione del sistema
+├── tmp/             ← file temporanei (svuotata al riavvio)
+├── usr/             ← i programmi installati
+├── var/             ← dati che cambiano: log, cache, ecc.
+├── media/           ← qui compaiono chiavette e dischi esterni
+└── root/            ← la cartella personale dell&#39;amministratore
+</code></pre>
+<p>Nota anche che Linux usa la barra <strong><code>/</code></strong>, mentre Windows usa la barra rovesciata <code>\</code>.</p>
+<h3>2.3 &quot;root&quot; ha due significati</h3>
+<p>La parola <strong>root</strong> (radice) si usa in due modi diversi, e all&#39;inizio confonde:</p>
+<ol>
+<li><strong>La cartella radice <code>/</code></strong>, da cui parte l&#39;albero visto sopra.</li>
+<li><strong>L&#39;utente <code>root</code></strong>, cioè l&#39;amministratore con pieni poteri (ne parliamo nel capitolo 7). La sua cartella personale è <code>/root</code>, da non confondere con <code>/</code>.</li>
+</ol>
+<p>Dal contesto capirai sempre a quale dei due ci si riferisce.</p>
+<h3>2.4 Il tasto Tab è il tuo migliore amico</h3>
+<p>Non scrivere mai a mano nomi di file o cartelle lunghi. Digita le prime 2 o 3 lettere e premi <strong>Tab</strong> (il tasto a sinistra della Q): la shell completa il nome da sola.</p>
+<p>Se le possibilità sono più di una, non succede nulla: premi <strong>Tab due volte</strong> e vedrai l&#39;elenco delle scelte.</p>
+<p>Tab evita gli errori di battitura e, soprattutto, ti conferma che il file esiste davvero: se Tab non completa, probabilmente il nome è sbagliato.</p>
+<h3>2.5 Nessun messaggio vuol dire &quot;tutto ok&quot;</h3>
+<p>Molti comandi, quando funzionano, <strong>non scrivono niente</strong>. Se crei una cartella con <code>mkdir prova</code> e il terminale torna al prompt in silenzio, l&#39;operazione è riuscita. I messaggi compaiono quasi sempre solo in caso di errore.</p>
+<h3>2.6 Copia e incolla nel terminale sono diversi</h3>
+<p>Nel terminale <strong>Ctrl + C non copia</strong>: interrompe il comando in esecuzione. Per copiare e incollare usa:</p>
+<table>
+<thead>
+<tr>
+<th align="left">Azione</th>
+<th align="left">Scorciatoia nel terminale</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Copia</td>
+<td align="left"><strong>Ctrl + Shift + C</strong></td>
+</tr>
+<tr>
+<td align="left">Incolla</td>
+<td align="left"><strong>Ctrl + Shift + V</strong></td>
+</tr>
+<tr>
+<td align="left">Interrompe il comando in corso</td>
+<td align="left"><strong>Ctrl + C</strong></td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> su Linux c&#39;è anche un trucco comodo: seleziona del testo con il mouse e premi la <strong>rotellina</strong> (tasto centrale) per incollarlo dove si trova il cursore. Con il trackpad del Mac il tasto centrale di solito non è disponibile: usa le scorciatoie della tabella.</p>
+</blockquote>
+<blockquote>
+<p>🍎 <strong>Su Mac:</strong> premi <strong>Control (⌃)</strong>, non Command (⌘): copia = <strong>Control + Shift + C</strong>, incolla = <strong>Control + Shift + V</strong>, interrompi = <strong>Control + C</strong>. Vedi la sezione 1.4.</p>
+</blockquote>
+<h3>2.7 Simboli difficili sulla tastiera italiana</h3>
+<p>Nel terminale si usano simboli che sulla tastiera italiana non hanno un tasto proprio. Il tasto <strong>AltGr</strong> è quello a destra della barra spaziatrice.</p>
+<table>
+<thead>
+<tr>
+<th align="center">Simbolo</th>
+<th align="left">Nome</th>
+<th align="left">Su Debian (tastiera italiana)</th>
+<th align="left">In WSL / Windows</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>~</code></td>
+<td align="left">tilde</td>
+<td align="left">AltGr + ì</td>
+<td align="left">Alt + 126 (tastierino numerico)</td>
+</tr>
+<tr>
+<td align="center"><code>|</code></td>
+<td align="left">barra verticale (pipe)</td>
+<td align="left">Shift + <code>\</code> (tasto a sinistra di 1)</td>
+<td align="left">uguale</td>
+</tr>
+<tr>
+<td align="center"><code>#</code></td>
+<td align="left">cancelletto</td>
+<td align="left">AltGr + à</td>
+<td align="left">uguale</td>
+</tr>
+<tr>
+<td align="center"><code>@</code></td>
+<td align="left">chiocciola</td>
+<td align="left">AltGr + ò</td>
+<td align="left">uguale</td>
+</tr>
+<tr>
+<td align="center"><code>[</code> <code>]</code></td>
+<td align="left">parentesi quadre</td>
+<td align="left">AltGr + è / AltGr + +</td>
+<td align="left">uguale</td>
+</tr>
+<tr>
+<td align="center"><code>{</code> <code>}</code></td>
+<td align="left">parentesi graffe</td>
+<td align="left">AltGr + Shift + è / AltGr + Shift + +</td>
+<td align="left">uguale</td>
+</tr>
+<tr>
+<td align="center"><code>`</code></td>
+<td align="left">apice inverso</td>
+<td align="left">AltGr + &#39;</td>
+<td align="left">Alt + 96 (tastierino numerico)</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>🍎 <strong>Su Mac:</strong> la tastiera italiana del Mac ha una disposizione diversa da quella del PC. Trovi i simboli corrispondenti nella sezione 1.4.</p>
+</blockquote>
+<hr>
+<h2>3. Terminale, shell e prompt</h2>
+<h3>3.1 Terminale e shell: due cose diverse</h3>
+<ul>
+<li><strong>Il terminale</strong> è la finestra: mostra il testo e riceve i tasti che premi.</li>
+<li><strong>La shell</strong> è il programma, invisibile, che legge quello che scrivi, lo interpreta e lo fa eseguire al sistema.</li>
+</ul>
+<p>Un paragone: il terminale è il citofono, la shell è la persona che risponde ed esegue le richieste.</p>
+<h3>3.2 Bash, la shell che userai</h3>
+<p>Su Debian la shell predefinita si chiama <strong>Bash</strong>. È la più diffusa in assoluto: quando cerchi una soluzione su internet, la risposta è quasi sempre scritta per Bash. Per verificare quale shell stai usando:</p>
+<pre><code class="language-bash">echo $0
+</code></pre>
+<p>Risultato atteso:</p>
+<pre><code class="language-text">bash
+</code></pre>
+<p>(Potresti vedere <code>-bash</code>: è la stessa cosa.)</p>
+<blockquote>
+<p>💡 <strong>Per curiosità:</strong> esistono altre shell. <strong>Zsh</strong> è molto personalizzabile ed è la predefinita su macOS; <strong>Fish</strong> dà suggerimenti colorati senza bisogno di configurazione, ma ha una sintassi un po&#39; diversa. Per imparare, resta su Bash.</p>
+</blockquote>
+<h3>3.3 Leggere il prompt</h3>
+<p>Il prompt di Debian ha questo aspetto:</p>
+<pre><code class="language-text">mario@debian:~/Documenti$
+</code></pre>
+<table>
+<thead>
+<tr>
+<th align="left">Parte</th>
+<th align="left">Significato</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><code>mario</code></td>
+<td align="left">il tuo nome utente</td>
+</tr>
+<tr>
+<td align="left"><code>@debian</code></td>
+<td align="left">il nome del computer</td>
+</tr>
+<tr>
+<td align="left"><code>~/Documenti</code></td>
+<td align="left">la cartella in cui ti trovi adesso (<code>~</code> = la tua cartella personale)</td>
+</tr>
+<tr>
+<td align="left"><code>$</code></td>
+<td align="left">sei un utente normale</td>
+</tr>
+</tbody></table>
+<p>Se al posto di <code>$</code> vedi <strong><code>#</code></strong>, stai lavorando come amministratore <code>root</code>: massima prudenza (vedi capitolo 7).</p>
+<h3>3.4 Com&#39;è fatto un comando</h3>
+<p>Quasi ogni comando segue lo stesso schema:</p>
+<pre><code class="language-text">comando   opzioni   argomenti
+  ls        -l       /home
+</code></pre>
+<ul>
+<li><strong>Il comando</strong> è il nome del programma: <code>ls</code> significa &quot;elenca&quot;.</li>
+<li><strong>Le opzioni</strong> modificano il comportamento. Iniziano con un trattino: <code>-l</code> significa &quot;formato lungo, con i dettagli&quot;.</li>
+<li><strong>Gli argomenti</strong> dicono su cosa agire: <code>/home</code> è la cartella da elencare.</li>
+</ul>
+<p>Altre regole:</p>
+<ul>
+<li>Le parti si separano con <strong>uno spazio</strong>. <code>ls-l</code> non funziona; <code>ls -l</code> sì.</li>
+<li>Più opzioni brevi si possono unire: <code>ls -l -a</code> equivale a <code>ls -la</code>.</li>
+<li>Molte opzioni hanno anche una forma lunga con due trattini: <code>ls -a</code> equivale a <code>ls --all</code>.</li>
+</ul>
+<h3>3.5 Chiedere aiuto</h3>
+<p>Non serve ricordare tutto: Linux contiene il proprio manuale.</p>
+<pre><code class="language-bash"># Il manuale completo del comando ls
+man ls
+</code></pre>
+<p>Dentro il manuale ti muovi con le <strong>frecce</strong>, cerchi una parola con <strong><code>/parola</code></strong> seguito da Invio ed <strong>esci premendo <code>q</code></strong>.</p>
+<pre><code class="language-bash"># Un riassunto più breve delle opzioni
+ls --help
+</code></pre>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> il pacchetto <code>tldr</code> mostra esempi pratici invece di lunghe spiegazioni. Quando avrai imparato a installare i programmi (capitolo 8) prova <code>sudo apt install tldr</code> e poi <code>tldr tar</code>. Al primo uso potrebbe chiederti di scaricare le schede con <code>tldr --update</code>.</p>
+</blockquote>
+<blockquote>
+<p>⚠️ <strong>Attenzione — se un comando di base manca:</strong> in alcune installazioni ridotte, per esempio Debian su WSL, i programmi <code>man</code>, <code>nano</code> o <code>less</code> possono non essere installati, e il terminale risponde <code>comando non trovato</code>. Puoi installarli subito, anche se <code>apt</code> lo spiegheremo nel capitolo 8:</p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install man-db nano less
+</code></pre>
+<p>Il comando <code>man</code> si trova nel pacchetto <code>man-db</code>. Se <code>sudo</code> risponde con un errore, leggi prima la sezione 7.3.</p>
+</blockquote>
+<h3>3.6 Richiamare i comandi già scritti</h3>
+<ul>
+<li><strong>Freccia Su / Giù</strong>: scorre i comandi digitati in precedenza. Utilissimo per ripetere o correggere un comando.</li>
+<li><strong>Ctrl + R</strong>: cerca nella cronologia. Premilo, scrivi una parte del comando e premi Invio per eseguirlo.</li>
+<li><strong><code>history</code></strong>: mostra l&#39;elenco numerato dei comandi digitati.</li>
+<li><strong><code>clear</code></strong> (oppure <strong>Ctrl + L</strong>): pulisce lo schermo.</li>
+</ul>
+<h3>✍️ Mettiti alla prova</h3>
+<ol>
+<li>Apri il terminale e individua nel prompt il tuo nome utente e il nome del computer.</li>
+<li>Apri il manuale del comando <code>echo</code>, cerca la parola <code>newline</code> ed esci.</li>
+<li>Usa la freccia Su per richiamare l&#39;ultimo comando senza riscriverlo.</li>
+</ol>
+<hr>
+<h2>4. Muoversi tra le cartelle</h2>
+<p>Nel terminale sei sempre &quot;dentro&quot; una cartella, chiamata <strong>cartella corrente</strong>. All&#39;apertura del terminale è la tua cartella personale, <code>/home/mario</code>, abbreviata in <code>~</code>.</p>
+<p><strong>Preparazione.</strong> Su Debian con desktop la cartella personale contiene già cartelle come <code>Documenti</code> e <code>Scaricati</code>; in WSL è vuota. Questo comando crea le due cartelle usate negli esempi, e se esistono già non fa nulla (<code>mkdir</code> crea cartelle: lo vedrai meglio nel capitolo 5):</p>
+<pre><code class="language-bash">mkdir -p ~/Documenti ~/Scaricati
+</code></pre>
+<h3>4.1 <code>pwd</code>: dove mi trovo?</h3>
+<pre><code class="language-bash">pwd
+</code></pre>
+<p>Risultato atteso:</p>
+<pre><code class="language-text">/home/mario
+</code></pre>
+<p><code>pwd</code> (<em>print working directory</em>) mostra il percorso completo della cartella corrente. Usalo ogni volta che ti senti perso.</p>
+<h3>4.2 <code>ls</code>: cosa c&#39;è qui?</h3>
+<pre><code class="language-bash"># Elenca il contenuto della cartella corrente
+ls
+</code></pre>
+<p>Risultato atteso (su Debian con desktop):</p>
+<pre><code class="language-text">Documenti  Immagini  Modelli  Musica  Pubblici  Scaricati  Scrivania  Video
+</code></pre>
+<p>Le varianti più utili:</p>
+<table>
+<thead>
+<tr>
+<th align="left">Comando</th>
+<th align="left">Cosa mostra</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><code>ls</code></td>
+<td align="left">i nomi di file e cartelle</td>
+</tr>
+<tr>
+<td align="left"><code>ls -l</code></td>
+<td align="left">un elenco dettagliato: permessi, proprietario, dimensione, data</td>
+</tr>
+<tr>
+<td align="left"><code>ls -a</code></td>
+<td align="left">anche i file <strong>nascosti</strong>, cioè quelli il cui nome inizia con un punto (<code>.bashrc</code>)</td>
+</tr>
+<tr>
+<td align="left"><code>ls -lh</code></td>
+<td align="left">come <code>-l</code>, ma con dimensioni leggibili (<code>4,0K</code>, <code>12M</code>) invece che in byte</td>
+</tr>
+<tr>
+<td align="left"><code>ls -la</code></td>
+<td align="left">dettagli + file nascosti</td>
+</tr>
+<tr>
+<td align="left"><code>ls /etc</code></td>
+<td align="left">il contenuto di un&#39;altra cartella, senza spostarti</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> di solito le cartelle appaiono in <strong>blu</strong> e i file in bianco: così le distingui a colpo d&#39;occhio.</p>
+</blockquote>
+<h3>4.3 <code>cd</code>: spostarsi</h3>
+<p><code>cd</code> (<em>change directory</em>) cambia la cartella corrente.</p>
+<pre><code class="language-bash"># Entra nella cartella Documenti
+cd Documenti
+
+# Torna su di un livello (alla cartella &quot;genitore&quot;)
+cd ..
+
+# Vai direttamente in una cartella indicando il percorso completo
+cd /etc
+
+# Torna alla tua cartella personale (funziona anche cd da solo)
+cd ~
+
+# Torna alla cartella in cui eri prima
+cd -
+</code></pre>
+<p>Dopo ogni <code>cd</code> il prompt cambia e mostra la nuova posizione: è il modo più semplice per capire dove sei.</p>
+<h3>4.4 Percorsi assoluti e relativi</h3>
+<p>Un <strong>percorso</strong> è l&#39;indirizzo di un file o di una cartella. Ne esistono di due tipi:</p>
+<table>
+<thead>
+<tr>
+<th align="left">Tipo</th>
+<th align="left">Come si riconosce</th>
+<th align="left">Esempio</th>
+<th align="left">Significato</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>Assoluto</strong></td>
+<td align="left">inizia con <code>/</code></td>
+<td align="left"><code>/home/mario/Documenti</code></td>
+<td align="left">l&#39;indirizzo completo, valido da qualunque posizione</td>
+</tr>
+<tr>
+<td align="left"><strong>Relativo</strong></td>
+<td align="left">non inizia con <code>/</code></td>
+<td align="left"><code>Documenti/note.txt</code></td>
+<td align="left">parte dalla cartella in cui ti trovi adesso</td>
+</tr>
+</tbody></table>
+<p>Alcuni simboli speciali:</p>
+<table>
+<thead>
+<tr>
+<th align="center">Simbolo</th>
+<th align="left">Significato</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>.</code></td>
+<td align="left">la cartella corrente</td>
+</tr>
+<tr>
+<td align="center"><code>..</code></td>
+<td align="left">la cartella superiore</td>
+</tr>
+<tr>
+<td align="center"><code>~</code></td>
+<td align="left">la tua cartella personale (<code>/home/mario</code>)</td>
+</tr>
+<tr>
+<td align="center"><code>/</code></td>
+<td align="left">la cartella radice</td>
+</tr>
+</tbody></table>
+<p>Esempio: se sei in <code>/home/mario/Documenti</code>, il percorso <code>../Scaricati</code> porta a <code>/home/mario/Scaricati</code>.</p>
+<h3>4.5 Nomi con spazi</h3>
+<p>Lo spazio separa le parti di un comando, quindi un nome come <code>I miei file</code> crea confusione: la shell lo legge come tre nomi diversi. Ci sono tre soluzioni:</p>
+<pre><code class="language-bash"># Crea una cartella di prova con gli spazi nel nome
+mkdir &quot;I miei file&quot;
+
+# 1. Racchiudi il nome tra virgolette (poi torna indietro con cd ..)
+cd &quot;I miei file&quot;
+cd ..
+
+# 2. Oppure metti una barra rovesciata prima di ogni spazio
+cd I\ miei\ file
+cd ..
+
+# 3. Oppure scrivi &quot;cd I&quot; e premi Tab: la shell aggiunge le barre da sola
+
+# Cancella la cartella di prova (rmdir elimina una cartella vuota)
+rmdir &quot;I miei file&quot;
+</code></pre>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> quando crei file e cartelle tuoi, evita spazi e lettere accentate. Usa il trattino basso: <code>i_miei_file</code>.</p>
+</blockquote>
+<h3>✍️ Mettiti alla prova</h3>
+<ol>
+<li>Vai nella cartella <code>/etc</code> e verifica dove ti trovi con <code>pwd</code>.</li>
+<li>Elenca il contenuto di <code>/etc</code> in formato dettagliato.</li>
+<li>Torna nella tua cartella personale <strong>con un solo comando</strong>.</li>
+<li>Mostra i file nascosti della tua cartella personale. Trovi un file chiamato <code>.bashrc</code>?</li>
+</ol>
+<hr>
+<h2>5. Lavorare con file e cartelle</h2>
+<h3>5.1 La cartella di prova</h3>
+<p>Da qui in avanti gli esempi creano, spostano e cancellano file. Per farlo senza rischi lavorerai sempre in una cartella dedicata, chiamata <code>palestra</code>. Creala ed entraci:</p>
+<pre><code class="language-bash">cd ~
+mkdir palestra
+cd palestra
+pwd
+</code></pre>
+<p>Risultato atteso:</p>
+<pre><code class="language-text">/home/mario/palestra
+</code></pre>
+<p>Ogni volta che riapri il terminale per continuare gli esercizi, torna qui con <code>cd ~/palestra</code>.</p>
+<blockquote>
+<p>🛑 <strong>Pericolo:</strong> durante le prove non lavorare mai in <code>/mnt/c</code> (WSL) o nelle cartelle condivise con il Mac (per esempio <code>/media/psf</code> con Parallels): lì i comandi agiscono sui file veri di Windows o del Mac. Prima di ogni cancellazione controlla con <code>pwd</code> di trovarti in <code>palestra</code>.</p>
+</blockquote>
+<h3>5.2 Creare</h3>
+<pre><code class="language-bash"># Crea una cartella
+mkdir progetti
+
+# Crea più cartelle annidate in un colpo solo (-p = &quot;anche quelle intermedie&quot;)
+mkdir -p progetti/2026/foto
+
+# Crea un file vuoto
+touch appunti.txt
+</code></pre>
+<h3>5.3 Leggere il contenuto di un file</h3>
+<p>Il file <code>appunti.txt</code> appena creato è vuoto. Per fare pratica usa due file di testo che su Debian esistono sempre: <code>/etc/os-release</code>, che descrive la versione del sistema, e <code>/etc/passwd</code>, l&#39;elenco degli utenti.</p>
+<table>
+<thead>
+<tr>
+<th align="left">Comando</th>
+<th align="left">Cosa fa</th>
+<th align="left">Quando usarlo</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><code>cat /etc/os-release</code></td>
+<td align="left">stampa tutto il file a video</td>
+<td align="left">file brevi</td>
+</tr>
+<tr>
+<td align="left"><code>less /etc/passwd</code></td>
+<td align="left">apre il file in una finestra scorrevole (frecce per muoversi, <code>/</code> per cercare, <strong><code>q</code> per uscire</strong>)</td>
+<td align="left">file lunghi</td>
+</tr>
+<tr>
+<td align="left"><code>head /etc/passwd</code></td>
+<td align="left">mostra le prime 10 righe</td>
+<td align="left">per dare un&#39;occhiata all&#39;inizio</td>
+</tr>
+<tr>
+<td align="left"><code>tail /etc/passwd</code></td>
+<td align="left">mostra le ultime 10 righe</td>
+<td align="left">per vedere la fine, per esempio di un log</td>
+</tr>
+<tr>
+<td align="left"><code>tail -n 3 /etc/passwd</code></td>
+<td align="left">mostra le ultime 3 righe</td>
+<td align="left">per scegliere quante righe vedere</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> con <code>cat /etc/os-release</code> scopri quale versione di Debian stai usando: guarda la riga <code>PRETTY_NAME</code>.</p>
+</blockquote>
+<h3>5.4 Copiare, spostare, rinominare</h3>
+<pre><code class="language-bash"># Copia un file (originale → copia)
+cp appunti.txt appunti_copia.txt
+
+# Copia un file dentro una cartella
+cp appunti.txt progetti/
+
+# Copia una cartella con tutto il suo contenuto (-r = &quot;ricorsivo&quot;)
+cp -r progetti progetti_backup
+
+# Rinomina un file (in Linux rinominare = spostare con un nome nuovo)
+mv appunti_copia.txt vecchi_appunti.txt
+
+# Sposta un file in un&#39;altra cartella
+mv vecchi_appunti.txt progetti/
+</code></pre>
+<blockquote>
+<p>⚠️ <strong>Attenzione:</strong> se il file di destinazione esiste già, <code>cp</code> e <code>mv</code> lo <strong>sovrascrivono senza chiedere</strong>. Aggiungi <code>-i</code> (<code>cp -i</code>, <code>mv -i</code>) per farti chiedere conferma.</p>
+</blockquote>
+<h3>5.5 Cancellare</h3>
+<pre><code class="language-bash"># Cancella un file (vecchi_appunti.txt ora si trova dentro progetti)
+rm progetti/vecchi_appunti.txt
+
+# Crea una cartella vuota e poi cancellala
+mkdir cartella_vuota
+rmdir cartella_vuota
+
+# Cancella una cartella con tutto il suo contenuto
+rm -r progetti_backup
+
+# Chiedi conferma prima di cancellare
+rm -i appunti.txt
+</code></pre>
+<p>Con <code>-i</code> il terminale chiede conferma, per esempio <code>rm: rimuovere file regolare vuoto &#39;appunti.txt&#39;?</code>. Rispondi <code>s</code> (o <code>y</code>) e premi Invio per cancellare; qualunque altra risposta annulla.</p>
+<blockquote>
+<p>🛑 <strong>Pericolo: nel terminale non esiste il cestino.</strong> Un file cancellato con <code>rm</code> è perso per sempre. Prima di premere Invio rileggi il comando, soprattutto se contiene <code>-r</code> o il simbolo <code>*</code>. Non eseguire mai <code>rm -rf</code> seguito da un percorso di cui non sei sicuro.</p>
+</blockquote>
+<h3>5.6 I caratteri jolly</h3>
+<p>L&#39;asterisco <code>*</code> significa &quot;qualunque sequenza di caratteri&quot;. Prepara alcuni file vuoti su cui provarlo:</p>
+<pre><code class="language-bash"># touch può creare più file in un colpo solo
+touch foto1.jpg foto2.jpg nota.txt
+</code></pre>
+<pre><code class="language-bash"># Elenca solo i file che finiscono con .jpg
+ls *.jpg
+
+# Crea la cartella foto e copiaci tutti i file .jpg
+mkdir foto
+cp *.jpg foto/
+ls foto
+</code></pre>
+<p>Risultato atteso: entrambi gli <code>ls</code> mostrano</p>
+<pre><code class="language-text">foto1.jpg  foto2.jpg
+</code></pre>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> prima di usare <code>*</code> con <code>rm</code>, prova lo stesso schema con <code>ls</code> per vedere esattamente quali file verrebbero cancellati: prima <code>ls *.jpg</code>, poi <code>rm *.jpg</code>.</p>
+</blockquote>
+<h3>5.7 Modificare un file di testo con <code>nano</code></h3>
+<p><code>nano</code> è un editor di testo che funziona dentro il terminale. È il più semplice per iniziare. (Se il terminale risponde <code>comando non trovato</code>, leggi il riquadro nella sezione 3.5.)</p>
+<pre><code class="language-bash">nano appunti.txt
+</code></pre>
+<p>Se il file non esiste, <code>nano</code> lo crea quando salvi. Una volta dentro:</p>
+<ul>
+<li><strong>Scrivi</strong> normalmente e muoviti con le <strong>frecce</strong> (il mouse di solito non serve).</li>
+<li>In fondo alla finestra sono elencati i comandi. Il simbolo <strong><code>^</code></strong> significa <strong>Ctrl</strong>: <code>^X</code> vuol dire <strong>Ctrl + X</strong>.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th align="left">Scorciatoia</th>
+<th align="left">Azione</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>Ctrl + O</strong>, poi <strong>Invio</strong></td>
+<td align="left">Salva (Invio conferma il nome del file)</td>
+</tr>
+<tr>
+<td align="left"><strong>Ctrl + X</strong></td>
+<td align="left">Esci. Se ci sono modifiche non salvate, chiede se salvarle: rispondi <strong>S</strong> (Sì) o <strong>N</strong> (No). Su un sistema in inglese le lettere sono <strong>Y</strong> e <strong>N</strong>.</td>
+</tr>
+<tr>
+<td align="left"><strong>Ctrl + W</strong></td>
+<td align="left">Cerca una parola</td>
+</tr>
+<tr>
+<td align="left"><strong>Ctrl + K</strong></td>
+<td align="left">Taglia la riga intera</td>
+</tr>
+<tr>
+<td align="left"><strong>Ctrl + U</strong></td>
+<td align="left">Incolla la riga tagliata</td>
+</tr>
+<tr>
+<td align="left"><strong>Alt + U</strong></td>
+<td align="left">Annulla l&#39;ultima modifica</td>
+</tr>
+</tbody></table>
+<h3>✍️ Mettiti alla prova</h3>
+<ol>
+<li>Dentro <code>palestra</code>, crea la cartella <code>esercizi</code> e, al suo interno, il file <code>lista.txt</code>.</li>
+<li>Apri <code>lista.txt</code> con <code>nano</code>, scrivi tre righe di testo, salva ed esci.</li>
+<li>Mostra il contenuto del file con <code>cat</code>.</li>
+<li>Copia <code>lista.txt</code> in <code>lista_vecchia.txt</code>, poi cancella <code>lista_vecchia.txt</code>.</li>
+</ol>
+<hr>
+<h2>6. La tua prima sessione guidata</h2>
+<p>In questo esercizio, di circa 10 minuti, usi insieme tutto quello che hai imparato. Lavori in una sottocartella di <code>palestra</code>, chiamata <code>sessione</code>, che alla fine cancellerai: non rischi nulla.</p>
+<p><strong>Passo 1 — Entra nella palestra e crea la cartella della sessione</strong></p>
+<pre><code class="language-bash">cd ~/palestra
+mkdir sessione
+cd sessione
+pwd
+</code></pre>
+<p>Risultato atteso:</p>
+<pre><code class="language-text">/home/mario/palestra/sessione
+</code></pre>
+<p><strong>Passo 2 — Crea un file e controlla che esista</strong></p>
+<pre><code class="language-bash">touch primo.txt
+ls
+</code></pre>
+<p>Risultato atteso:</p>
+<pre><code class="language-text">primo.txt
+</code></pre>
+<p><strong>Passo 3 — Scrivi qualcosa nel file</strong></p>
+<pre><code class="language-bash">nano primo.txt
+</code></pre>
+<p>Scrivi <code>Ciao Linux!</code>, poi salva (<strong>Ctrl + O</strong>, <strong>Invio</strong>) ed esci (<strong>Ctrl + X</strong>). Controlla il contenuto:</p>
+<pre><code class="language-bash">cat primo.txt
+</code></pre>
+<p>Risultato atteso:</p>
+<pre><code class="language-text">Ciao Linux!
+</code></pre>
+<p><strong>Passo 4 — Copia, rinomina e sposta</strong></p>
+<pre><code class="language-bash">cp primo.txt copia.txt
+mv copia.txt secondo.txt
+mkdir archivio
+mv secondo.txt archivio/
+ls
+ls archivio
+</code></pre>
+<p>Risultato atteso:</p>
+<pre><code class="language-text">archivio  primo.txt
+secondo.txt
+</code></pre>
+<p>La prima riga è il contenuto di <code>palestra</code>, la seconda il contenuto di <code>archivio</code>.</p>
+<p><strong>Passo 5 — Guarda i dettagli</strong></p>
+<pre><code class="language-bash">ls -l
+</code></pre>
+<p>Risultato atteso (data e ora saranno diverse):</p>
+<pre><code class="language-text">totale 8
+drwxr-xr-x 2 mario mario 4096 25 ott 10:42 archivio
+-rw-r--r-- 1 mario mario   12 25 ott 10:40 primo.txt
+</code></pre>
+<p>La <code>d</code> all&#39;inizio della prima riga indica una cartella (<em>directory</em>). Il resto lo spiegheremo nel capitolo 10.</p>
+<p><strong>Passo 6 — Provoca un errore di proposito</strong></p>
+<pre><code class="language-bash">cat inesistente.txt
+</code></pre>
+<p>Risultato atteso:</p>
+<pre><code class="language-text">cat: inesistente.txt: File o directory non esistente
+</code></pre>
+<p>(Su un sistema in inglese: <code>No such file or directory</code>.) Gli errori non rompono nulla: leggili, ti dicono esattamente cosa non va.</p>
+<p><strong>Passo 7 — Fai pulizia</strong></p>
+<pre><code class="language-bash">cd ..
+rm -r sessione
+ls
+</code></pre>
+<p>La cartella <code>sessione</code> non compare più nell&#39;elenco. La cartella <code>palestra</code> invece resta: ti servirà nei prossimi capitoli. Complimenti: hai completato la tua prima sessione nel terminale!</p>
+<hr>
+<h1>Parte II — Usare il sistema</h1>
+<h2>7. L&#39;amministratore e il comando <code>sudo</code></h2>
+<h3>7.1 Utente normale e utente root</h3>
+<p>In Linux esiste un utente speciale, <strong>root</strong>, che può fare qualunque cosa: installare programmi, modificare la configurazione del sistema, cancellare qualsiasi file. Proprio per questo non si lavora mai come root. Si usa il proprio utente normale e, solo quando serve, si &quot;prendono in prestito&quot; i poteri di amministratore con il comando <strong><code>sudo</code></strong> (<em>superuser do</em>).</p>
+<pre><code class="language-bash"># Con quale utente sto lavorando?
+whoami
+</code></pre>
+<p>Risultato atteso:</p>
+<pre><code class="language-text">mario
+</code></pre>
+<h3>7.2 Usare <code>sudo</code></h3>
+<p>Basta scrivere <code>sudo</code> prima del comando da eseguire come amministratore:</p>
+<pre><code class="language-bash">sudo apt update
+</code></pre>
+<p>Il terminale chiede una password:</p>
+<pre><code class="language-text">[sudo] password di mario:
+</code></pre>
+<blockquote>
+<p>⚠️ <strong>Attenzione — la password è invisibile.</strong> Mentre digiti la password <strong>non compare nulla</strong>: niente asterischi, niente puntini, il cursore resta fermo. È normale: è una misura di sicurezza. Digitala alla cieca e premi <strong>Invio</strong>. Se sbagli, il terminale te la richiede.</p>
+</blockquote>
+<p>Altre cose da sapere:</p>
+<ul>
+<li>La password richiesta è <strong>quella del tuo utente</strong>, non una password speciale.</li>
+<li>Dopo averla inserita, <code>sudo</code> non la chiede di nuovo per circa <strong>15 minuti</strong>.</li>
+<li>Usa <code>sudo</code> solo quando serve davvero (installare programmi, modificare file di sistema). Per lavorare sui tuoi file non serve mai.</li>
+</ul>
+<h3>7.3 Se <code>sudo</code> non funziona (tipico di Debian)</h3>
+<p>Durante l&#39;installazione Debian chiede se impostare una password per l&#39;utente root.</p>
+<ul>
+<li>Se <strong>hai lasciato vuota</strong> la password di root, Debian ha già abilitato <code>sudo</code> per il tuo utente: puoi saltare questa sezione.</li>
+<li>Se <strong>hai impostato</strong> una password di root, il tuo utente non può usare <code>sudo</code>, e vedrai uno di questi messaggi:</li>
+</ul>
+<pre><code class="language-text">mario non è nel file sudoers.
+</code></pre>
+<pre><code class="language-text">bash: sudo: comando non trovato
+</code></pre>
+<p>La soluzione si applica una volta sola. Diventa root con <code>su -</code> (la password richiesta è quella di <strong>root</strong>, anch&#39;essa invisibile) e aggiungi il tuo utente al gruppo <code>sudo</code>:</p>
+<pre><code class="language-bash"># Da adattare: al posto di mario scrivi il tuo nome utente (lo vedi con whoami)
+# Diventa root: il prompt finirà con # invece di $
+su -
+
+# Solo se avevi visto &quot;comando non trovato&quot;: installa sudo
+apt install sudo
+
+# Aggiungi mario al gruppo sudo (usa il TUO nome utente)
+usermod -aG sudo mario
+
+# Torna al tuo utente normale
+exit
+</code></pre>
+<p>Ora <strong>esci dalla sessione e rientra</strong> (o riavvia il computer): la modifica vale solo dal nuovo accesso. Per verificare:</p>
+<pre><code class="language-bash">groups
+</code></pre>
+<p>Nel risultato deve comparire la parola <code>sudo</code>.</p>
+<blockquote>
+<p>💡 <strong>WSL:</strong> con Debian su WSL <code>sudo</code> è già configurato per l&#39;utente creato al primo avvio.</p>
+</blockquote>
+<blockquote>
+<p>🛑 <strong>Pericolo:</strong> quando il prompt termina con <code>#</code> sei root e ogni comando ha pieni poteri. Fai solo l&#39;operazione necessaria e torna subito al tuo utente con <code>exit</code>.</p>
+</blockquote>
+<hr>
+<h2>8. Installare programmi con <code>apt</code></h2>
+<h3>8.1 Come funziona</h3>
+<p>In Linux non si scaricano installatori <code>.exe</code> dai siti web. Debian offre un enorme catalogo di programmi controllati e sicuri, i <strong>repository</strong>, da cui si installa con lo strumento <strong><code>apt</code></strong>. Funziona come un &quot;negozio di app&quot; da riga di comando, ed è gratuito.</p>
+<h3>8.2 I comandi principali</h3>
+<pre><code class="language-bash"># 1. Aggiorna l&#39;ELENCO dei programmi disponibili (non installa niente)
+sudo apt update
+
+# 2. Aggiorna i programmi GIÀ INSTALLATI alle versioni nuove
+sudo apt upgrade
+
+# 3. Cerca un programma
+apt search editor
+
+# 4. Mostra le informazioni su un programma
+apt show htop
+
+# 5. Installa un programma
+sudo apt install htop
+
+# 6. Disinstalla un programma
+sudo apt remove htop
+
+# 7. Rimuovi le dipendenze che non servono più a nessun programma
+sudo apt autoremove
+</code></pre>
+<p>La differenza tra <code>update</code> e <code>upgrade</code> confonde tutti all&#39;inizio:</p>
+<ul>
+<li><strong><code>update</code></strong> è come sfogliare il catalogo aggiornato del negozio: scopri cosa c&#39;è di nuovo, ma non compri niente.</li>
+<li><strong><code>upgrade</code></strong> è come sostituire i programmi che hai già con le loro versioni nuove.</li>
+</ul>
+<p>Per tenere aggiornato il sistema esegui periodicamente entrambi, in quest&#39;ordine.</p>
+<h3>8.3 La domanda di conferma</h3>
+<p>Prima di installare o aggiornare, <code>apt</code> mostra cosa sta per fare e chiede conferma:</p>
+<pre><code class="language-text">Continuare? [S/n]
+</code></pre>
+<p>La lettera <strong>maiuscola</strong> è la risposta predefinita: premendo solo <strong>Invio</strong> rispondi &quot;Sì&quot;. Per annullare scrivi <code>n</code> e premi Invio.</p>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> con l&#39;opzione <code>-y</code> <code>apt</code> risponde &quot;Sì&quot; da solo: <code>sudo apt install -y htop</code>. Comodo, ma all&#39;inizio è meglio leggere cosa sta per fare.</p>
+</blockquote>
+<blockquote>
+<p>⚠️ <strong>Attenzione:</strong> evita di scaricare file <code>.deb</code> da siti sconosciuti. Usa i repository di Debian: sono controllati e si aggiornano da soli.</p>
+</blockquote>
+<blockquote>
+<p>💡 <strong>Altre distribuzioni:</strong> <code>apt</code> è lo strumento di Debian e delle distribuzioni derivate (Ubuntu, Linux Mint). Altre distribuzioni usano strumenti diversi, con lo stesso principio:</p>
+<table>
+<thead>
+<tr>
+<th align="left">Azione</th>
+<th align="left">Debian</th>
+<th align="left">Fedora</th>
+<th align="left">Arch Linux</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Installare</td>
+<td align="left"><code>sudo apt install &lt;nome&gt;</code></td>
+<td align="left"><code>sudo dnf install &lt;nome&gt;</code></td>
+<td align="left"><code>sudo pacman -S &lt;nome&gt;</code></td>
+</tr>
+<tr>
+<td align="left">Aggiornare tutto</td>
+<td align="left"><code>sudo apt update &amp;&amp; sudo apt upgrade</code></td>
+<td align="left"><code>sudo dnf upgrade</code></td>
+<td align="left"><code>sudo pacman -Syu</code></td>
+</tr>
+</tbody></table>
+</blockquote>
+<h3>✍️ Mettiti alla prova</h3>
+<ol>
+<li>Aggiorna l&#39;elenco dei pacchetti.</li>
+<li>Cerca il programma <code>cowsay</code> e leggi le sue informazioni con <code>apt show</code>.</li>
+<li>Installalo e prova <code>cowsay Ciao</code>. Poi disinstallalo.</li>
+</ol>
+<hr>
+<h2>9. Cercare file e testo</h2>
+<p>Due comandi, due scopi diversi:</p>
+<ul>
+<li><strong><code>find</code></strong> cerca i <strong>file</strong> in base al nome, al tipo o alla dimensione.</li>
+<li><strong><code>grep</code></strong> cerca <strong>parole dentro</strong> i file.</li>
+</ul>
+<h3>9.1 <code>find</code>: trovare un file</h3>
+<p>Gli esempi cercano i file creati nel capitolo 5, quindi parti dalla palestra:</p>
+<pre><code class="language-bash">cd ~/palestra
+
+# Cerca, dalla cartella corrente (.) in giù, tutti i file che finiscono con .txt
+find . -name &quot;*.txt&quot;
+
+# Cerca nella tua cartella personale, ignorando maiuscole e minuscole (-iname)
+find ~ -iname &quot;FOTO*&quot;
+
+# Cerca solo le cartelle (-type d) che si chiamano &quot;foto&quot;
+find ~ -type d -name &quot;foto&quot;
+</code></pre>
+<blockquote>
+<p>⚠️ <strong>Attenzione:</strong> metti sempre il nome tra virgolette quando contiene <code>*</code>, altrimenti la shell lo interpreta prima di passarlo a <code>find</code>.</p>
+</blockquote>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> se cerchi in tutto il sistema (<code>find / -name ...</code>) vedrai molti messaggi <code>Permesso negato</code> per le cartelle riservate all&#39;amministratore. Per nasconderli aggiungi <code>2&gt;/dev/null</code> in fondo al comando: <code>find / -name &quot;*.conf&quot; 2&gt;/dev/null</code>.</p>
+</blockquote>
+<h3>9.2 <code>grep</code>: trovare una parola dentro i file</h3>
+<pre><code class="language-bash"># Mostra le righe del file che contengono il tuo nome utente
+grep &quot;$USER&quot; /etc/passwd
+
+# Ignora maiuscole/minuscole (-i) e mostra il numero di riga (-n)
+grep -in &quot;alias&quot; ~/.bashrc
+
+# Cerca la parola &quot;debian&quot; in tutti i file di una cartella e delle sue sottocartelle (-r)
+grep -r &quot;debian&quot; /etc/apt
+</code></pre>
+<p><code>$USER</code> contiene il tuo nome utente: le variabili come questa sono spiegate nel capitolo 14.</p>
+<p>Risultato atteso del primo comando:</p>
+<pre><code class="language-text">mario:x:1000:1000:Mario,,,:/home/mario:/bin/bash
+</code></pre>
+<h3>9.3 La pipe <code>|</code>: collegare i comandi</h3>
+<p>La barra verticale <code>|</code> (si legge <em>pipe</em>, &quot;tubo&quot;) passa il risultato di un comando al comando successivo. È uno dei concetti più potenti di Linux.</p>
+<pre><code class="language-bash"># Elenca /etc e sfoglia il risultato con less, invece di vederlo scorrere via
+ls -l /etc | less
+
+# Tra tutti i comandi digitati, mostra solo quelli che contengono &quot;apt&quot;
+history | grep apt
+</code></pre>
+<h3>9.4 Salvare il risultato in un file: <code>&gt;</code> e <code>&gt;&gt;</code></h3>
+<pre><code class="language-bash"># Scrive l&#39;elenco dei file in elenco.txt (crea il file o lo SOVRASCRIVE)
+ls -l &gt; elenco.txt
+
+# Aggiunge una riga in FONDO al file, senza cancellare il resto
+echo &quot;Riga aggiunta&quot; &gt;&gt; elenco.txt
+</code></pre>
+<blockquote>
+<p>🛑 <strong>Pericolo:</strong> <code>&gt;</code> cancella il contenuto precedente del file senza chiedere. Se vuoi aggiungere, usa sempre <code>&gt;&gt;</code>.</p>
+</blockquote>
+<h3>✍️ Mettiti alla prova</h3>
+<ol>
+<li>Trova tutti i file <code>.conf</code> dentro <code>/etc</code> (solo nella cartella <code>/etc</code>, senza <code>sudo</code>; ignora gli eventuali <code>Permesso negato</code>).</li>
+<li>Cerca la riga che contiene il tuo nome utente nel file <code>/etc/group</code>.</li>
+<li>Salva in <code>pacchetti.txt</code> l&#39;elenco dei pacchetti installati (<code>apt list --installed</code>) e conta quante righe ha con <code>wc -l pacchetti.txt</code>.</li>
+</ol>
+<hr>
+<h2>10. Permessi e proprietà</h2>
+<h3>10.1 Leggere i permessi</h3>
+<p>Ogni file appartiene a un <strong>utente</strong> (il proprietario) e a un <strong>gruppo</strong>. Vedi entrambi con <code>ls -l</code>:</p>
+<pre><code class="language-text">-rw-r--r-- 1 mario mario 1234 25 ott 10:30 appunti.txt
+</code></pre>
+<p>La prima colonna, <code>-rw-r--r--</code>, si legge così:</p>
+<table>
+<thead>
+<tr>
+<th align="left">Posizione</th>
+<th align="left">Valore nell&#39;esempio</th>
+<th align="left">Significato</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">1° carattere</td>
+<td align="left"><code>-</code></td>
+<td align="left">tipo: <code>-</code> = file, <code>d</code> = cartella, <code>l</code> = collegamento</td>
+</tr>
+<tr>
+<td align="left">caratteri 2–4</td>
+<td align="left"><code>rw-</code></td>
+<td align="left">cosa può fare il <strong>proprietario</strong> (<code>mario</code>)</td>
+</tr>
+<tr>
+<td align="left">caratteri 5–7</td>
+<td align="left"><code>r--</code></td>
+<td align="left">cosa possono fare i membri del <strong>gruppo</strong> (<code>mario</code>)</td>
+</tr>
+<tr>
+<td align="left">caratteri 8–10</td>
+<td align="left"><code>r--</code></td>
+<td align="left">cosa possono fare <strong>tutti gli altri</strong></td>
+</tr>
+</tbody></table>
+<p>Le lettere hanno questo significato:</p>
+<table>
+<thead>
+<tr>
+<th align="center">Lettera</th>
+<th align="left">Su un file</th>
+<th align="left">Su una cartella</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>r</code></td>
+<td align="left">leggere il contenuto</td>
+<td align="left">elencare i file contenuti</td>
+</tr>
+<tr>
+<td align="center"><code>w</code></td>
+<td align="left">modificare il contenuto</td>
+<td align="left">creare o cancellare file al suo interno</td>
+</tr>
+<tr>
+<td align="center"><code>x</code></td>
+<td align="left">eseguirlo come programma</td>
+<td align="left">entrarci con <code>cd</code></td>
+</tr>
+<tr>
+<td align="center"><code>-</code></td>
+<td align="left">permesso assente</td>
+<td align="left">permesso assente</td>
+</tr>
+</tbody></table>
+<p>Nell&#39;esempio, quindi, <code>mario</code> può leggere e modificare <code>appunti.txt</code>; tutti gli altri possono solo leggerlo.</p>
+<h3>10.2 <code>chmod</code>: cambiare i permessi (modo con le lettere)</h3>
+<p><strong>Preparazione.</strong> Crea nella palestra i file usati negli esempi di questo capitolo:</p>
+<pre><code class="language-bash">cd ~/palestra
+touch script.sh diario.txt progetto.txt
+</code></pre>
+<p>Dopo ogni <code>chmod</code> puoi controllare il risultato con <code>ls -l</code>.</p>
+<p>Il modo più intuitivo usa le lettere: <strong>chi</strong> (<code>u</code> = proprietario, <em>user</em>; <code>g</code> = gruppo; <code>o</code> = altri, <em>others</em>; <code>a</code> = tutti), <strong><code>+</code> o <code>-</code></strong> (aggiungi o togli) e <strong>quale permesso</strong> (<code>r</code>, <code>w</code>, <code>x</code>).</p>
+<pre><code class="language-bash"># Rendi eseguibile il file per tutti
+chmod +x script.sh
+
+# Togli agli &quot;altri&quot; il permesso di lettura
+chmod o-r diario.txt
+
+# Dai al gruppo il permesso di scrittura
+chmod g+w progetto.txt
+</code></pre>
+<h3>10.3 <code>chmod</code>: il modo con i numeri</h3>
+<p>Nelle guide online troverai spesso comandi come <code>chmod 755</code>. Ogni permesso ha un valore: <strong>r = 4, w = 2, x = 1</strong>. Si sommano, e le <strong>tre cifre</strong> corrispondono nell&#39;ordine a <strong>proprietario, gruppo, altri</strong>.</p>
+<table>
+<thead>
+<tr>
+<th align="center">Numero</th>
+<th align="center">Lettere</th>
+<th align="left">Significato</th>
+<th align="left">Uso tipico</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>644</code></td>
+<td align="center"><code>rw-r--r--</code></td>
+<td align="left">il proprietario legge e scrive; gli altri leggono</td>
+<td align="left">documenti normali</td>
+</tr>
+<tr>
+<td align="center"><code>755</code></td>
+<td align="center"><code>rwxr-xr-x</code></td>
+<td align="left">il proprietario fa tutto; gli altri leggono ed eseguono</td>
+<td align="left">programmi, script, cartelle</td>
+</tr>
+<tr>
+<td align="center"><code>600</code></td>
+<td align="center"><code>rw-------</code></td>
+<td align="left">solo il proprietario legge e scrive</td>
+<td align="left">file privati</td>
+</tr>
+<tr>
+<td align="center"><code>700</code></td>
+<td align="center"><code>rwx------</code></td>
+<td align="left">solo il proprietario può fare tutto</td>
+<td align="left">cartelle private</td>
+</tr>
+</tbody></table>
+<p>Esempio: <code>7</code> = 4 + 2 + 1 = <code>rwx</code>; <code>5</code> = 4 + 1 = <code>r-x</code>; <code>4</code> = <code>r--</code>.</p>
+<blockquote>
+<p>🛑 <strong>Pericolo:</strong> non seguire mai i consigli che suggeriscono <code>chmod 777</code> &quot;per risolvere un problema di permessi&quot;. Così chiunque può modificare quel file: è una falla di sicurezza, non una soluzione.</p>
+</blockquote>
+<h3>10.4 <code>chown</code>: cambiare il proprietario</h3>
+<p>Molti file di sistema appartengono a root, ed è giusto così: <strong>non vanno &quot;ripresi&quot;</strong>. <code>chown</code> serve in un caso preciso: un <strong>tuo file di lavoro</strong>, dentro la tua cartella personale, che hai creato per sbaglio con <code>sudo</code> e che ora appartiene a root. Puoi simulare la situazione nella palestra:</p>
+<pre><code class="language-bash">cd ~/palestra
+
+# Crea un file con sudo: apparterrà a root
+sudo touch creato_con_sudo.txt
+ls -l creato_con_sudo.txt
+
+# Restituiscilo al tuo utente e al tuo gruppo (sintassi: utente:gruppo)
+sudo chown &quot;$USER&quot;:&quot;$USER&quot; creato_con_sudo.txt
+ls -l creato_con_sudo.txt
+</code></pre>
+<p>Il primo <code>ls -l</code> mostra <code>root root</code>, il secondo il tuo nome utente.</p>
+<p>Per una cartella e tutto ciò che contiene si aggiunge <code>-R</code> (<em>ricorsivo</em>):</p>
+<pre><code class="language-bash"># Da adattare: sostituisci progetto_mio con una TUA cartella dentro la tua home
+sudo chown -R &quot;$USER&quot;:&quot;$USER&quot; ~/progetto_mio
+</code></pre>
+<blockquote>
+<p>🛑 <strong>Pericolo:</strong> <code>-R</code> cambia il proprietario di <strong>tutto</strong> il contenuto, sottocartelle comprese. Usalo solo su cartelle tue dentro la tua home. Mai su cartelle di sistema come <code>/</code>, <code>/etc</code>, <code>/usr</code> o <code>/var</code>: i programmi che le usano smetterebbero di funzionare.</p>
+</blockquote>
+<h3>10.5 Il tuo primo script</h3>
+<p>Uno <strong>script</strong> è un file di testo che contiene una serie di comandi da eseguire in sequenza. Creane uno nella palestra:</p>
+<pre><code class="language-bash">cd ~/palestra
+nano ciao.sh
+</code></pre>
+<p>Scrivi queste righe, poi salva ed esci:</p>
+<pre><code class="language-bash">#!/bin/bash
+echo &quot;Ciao, $USER!&quot;
+echo &quot;Oggi è: $(date)&quot;
+echo &quot;Ti trovi nella cartella: $(pwd)&quot;
+</code></pre>
+<p>La prima riga, <code>#!/bin/bash</code>, dice al sistema di eseguire il file con Bash (anche se inizia con <code>#</code>, qui non è un commento: è un&#39;indicazione speciale chiamata <em>shebang</em>). <code>$(...)</code> inserisce nel testo il risultato di un comando.</p>
+<p>Rendilo eseguibile e avvialo:</p>
+<pre><code class="language-bash">chmod +x ciao.sh
+./ciao.sh
+</code></pre>
+<p>Risultato atteso (con la data di oggi):</p>
+<pre><code class="language-text">Ciao, mario!
+Oggi è: dom 25 ott 2026, 11:05:12, CET
+Ti trovi nella cartella: /home/mario/palestra
+</code></pre>
+<p>Il prefisso <strong><code>./</code></strong> significa &quot;il file che si trova qui, nella cartella corrente&quot;. Senza <code>./</code> la shell cerca il comando solo nelle cartelle di sistema e risponde <code>comando non trovato</code>.</p>
+<h3>✍️ Mettiti alla prova</h3>
+<ol>
+<li>Crea un file <code>segreto.txt</code> e fai in modo che solo tu possa leggerlo e modificarlo (con i numeri).</li>
+<li>Controlla il risultato con <code>ls -l</code>: quali lettere vedi nella prima colonna?</li>
+<li>Modifica <code>ciao.sh</code> aggiungendo una riga che mostri il contenuto della cartella corrente.</li>
+</ol>
+<hr>
+<h2>11. Processi, memoria e disco</h2>
+<p>Ogni programma in esecuzione è un <strong>processo</strong> e riceve dal sistema un numero di identificazione unico, il <strong>PID</strong> (<em>Process ID</em>).</p>
+<h3>11.1 Interrompere il comando nel terminale</h3>
+<ul>
+<li><strong>Ctrl + C</strong>: interrompe il comando che sta girando nel terminale. È il primo tentativo da fare.</li>
+</ul>
+<blockquote>
+<p>⚠️ <strong>Attenzione:</strong> <strong>Ctrl + Z</strong> non interrompe il comando: lo <strong>sospende</strong> e lo mette in pausa in sottofondo. Se l&#39;hai premuto per sbaglio, digita <code>fg</code> per riprenderlo.</p>
+</blockquote>
+<h3>11.2 Vedere i processi: <code>top</code> e <code>htop</code></h3>
+<pre><code class="language-bash">top
+</code></pre>
+<p><code>top</code> è sempre presente: mostra i processi in tempo reale, ordinati per uso del processore. <strong>Esci con <code>q</code></strong>.</p>
+<p><code>htop</code> è la versione colorata e più comoda, simile al Task Manager di Windows. Su Debian va installato:</p>
+<pre><code class="language-bash">sudo apt install htop
+htop
+</code></pre>
+<ul>
+<li>In alto vedi le barre del processore (una per ogni <em>core</em>) e la memoria usata.</li>
+<li>Seleziona un processo con le frecce e premi <strong>F9</strong> (o <strong>k</strong>) per terminarlo.</li>
+<li>Premi <strong>F10</strong> o <strong>q</strong> per uscire.</li>
+</ul>
+<blockquote>
+<p>🍎 <strong>Su Mac:</strong> i tasti funzione si premono insieme a <strong>fn</strong>: <strong>fn + F9</strong> per terminare un processo, <strong>fn + F10</strong> per uscire. Il tasto <strong>q</strong> funziona senza fn.</p>
+</blockquote>
+<h3>11.3 Trovare il PID di un programma</h3>
+<p>Per fare pratica senza rischi avvia un processo innocuo: <code>sleep 300</code> aspetta 300 secondi senza fare nulla, e il simbolo <code>&amp;</code> lo fa girare in sottofondo, lasciandoti libero il terminale.</p>
+<pre><code class="language-bash"># Avvia il processo di prova in sottofondo
+sleep 300 &amp;
+
+# Mostra i processi che si chiamano &quot;sleep&quot; con il loro PID
+pgrep -a sleep
+
+# In alternativa: elenca tutti i processi e filtra con grep
+ps aux | grep sleep
+</code></pre>
+<p>Risultato atteso di <code>pgrep</code> (il numero sarà diverso):</p>
+<pre><code class="language-text">4512 sleep 300
+</code></pre>
+<p>Il numero all&#39;inizio è il PID. Con un programma vero il procedimento è lo stesso, per esempio <code>pgrep -a firefox</code>.</p>
+<h3>11.4 Chiudere un programma bloccato</h3>
+<pre><code class="language-bash"># Da adattare: al posto di 4512 scrivi il PID che ti ha mostrato pgrep
+# Chiede gentilmente al processo di chiudersi
+kill 4512
+</code></pre>
+<p>Se il processo non risponde, si forza la chiusura immediata con <code>-9</code>, ma solo come ultima risorsa:</p>
+<pre><code class="language-bash"># Da adattare: al posto di 4512 scrivi il PID
+kill -9 4512
+</code></pre>
+<p>Per chiudere un programma per nome, senza conoscere il PID:</p>
+<pre><code class="language-bash"># Avvia un altro processo di prova e chiudilo per nome
+sleep 300 &amp;
+pkill sleep
+</code></pre>
+<blockquote>
+<p>⚠️ <strong>Attenzione:</strong> <code>kill -9</code> chiude il programma all&#39;istante, senza dargli il tempo di salvare. Usalo solo se <code>kill</code> da solo non ha funzionato. Potresti trovare anche <code>killall firefox</code>: fa la stessa cosa di <code>pkill</code>; se manca, si installa con <code>sudo apt install psmisc</code>.</p>
+</blockquote>
+<h3>11.5 Memoria e spazio su disco</h3>
+<pre><code class="language-bash"># Quanta memoria RAM è usata e quanta è libera (-h = unità leggibili)
+free -h
+
+# Quanto spazio è occupato e libero su ogni disco
+df -h
+
+# Quanto occupa una cartella
+du -sh ~/palestra
+</code></pre>
+<hr>
+<h2>12. Rete e download</h2>
+<h3>12.1 La connessione funziona? <code>ping</code></h3>
+<pre><code class="language-bash"># Invia 4 segnali a debian.org e aspetta la risposta
+ping -c 4 debian.org
+</code></pre>
+<p>Se ricevi le risposte, la connessione funziona. Senza <code>-c 4</code>, <code>ping</code> continua all&#39;infinito: in quel caso fermalo con <strong>Ctrl + C</strong>.</p>
+<p>Come leggere il risultato:</p>
+<ul>
+<li><strong>Arrivano le risposte</strong>: compaiono righe con il tempo di risposta e, alla fine, un riepilogo con <code>0%</code> di pacchetti persi. Quel computer è raggiungibile.</li>
+<li><strong>Il comando si ferma subito con un errore sul nome</strong>, come <code>Nome o servizio sconosciuto</code> o un messaggio che parla di <em>risoluzione del nome</em> (<em>name resolution</em>): il tuo computer non riesce a tradurre <code>debian.org</code> in un indirizzo. Il problema è nella &quot;rubrica&quot; dei nomi, il DNS.</li>
+<li><strong>Non arriva nessuna risposta</strong>, senza errori sul nome: può essere un problema della tua connessione, ma non è detto. Alcune reti e alcuni server non rispondono a <code>ping</code> di proposito. Prova un altro indirizzo e controlla se il browser apre i siti.</li>
+</ul>
+<h3>12.2 Il mio indirizzo IP</h3>
+<pre><code class="language-bash">ip a
+</code></pre>
+<p>Cerca la riga che inizia con <code>inet</code> sotto la scheda di rete (per esempio <code>inet 192.168.1.23/24</code>): quello è il tuo indirizzo nella rete locale.</p>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> molte guide vecchie usano <code>ifconfig</code>, che su Debian non è più installato. Il comando moderno è <code>ip</code>.</p>
+</blockquote>
+<h3>12.3 Scaricare file: <code>wget</code> e <code>curl</code></h3>
+<p>Il file viene salvato nella cartella corrente, quindi prima spostati dove vuoi salvarlo. Per provare, scarica la pagina di <code>example.com</code>, un sito che esiste apposta per gli esempi:</p>
+<pre><code class="language-bash">cd ~/palestra
+
+# wget scarica il file mantenendo il suo nome (qui: index.html)
+wget https://example.com/index.html
+
+# curl: -O (O maiuscola) salva con il nome originale, -L segue i reindirizzamenti
+curl -LO https://example.com/index.html
+</code></pre>
+<p>Per scaricare un file vero si usa lo stesso schema:</p>
+<pre><code class="language-bash"># Da adattare: sostituisci &lt;indirizzo&gt; con il link completo del file, che inizia con https://
+wget &lt;indirizzo&gt;
+</code></pre>
+<p>Su Debian <code>wget</code> è quasi sempre presente; <code>curl</code> potrebbe mancare: in quel caso installalo con <code>sudo apt install curl</code>.</p>
+<hr>
+<h2>13. Archivi compressi</h2>
+<h3>13.1 Archivi <code>.tar.gz</code> (i più comuni su Linux)</h3>
+<p><strong>Preparazione.</strong> Crea nella palestra una cartella con qualche file da archiviare:</p>
+<pre><code class="language-bash">cd ~/palestra
+mkdir da_archiviare
+touch da_archiviare/uno.txt da_archiviare/due.txt
+</code></pre>
+<pre><code class="language-bash"># Crea un archivio compresso a partire dalla cartella
+tar -czvf backup.tar.gz da_archiviare/
+
+# Guarda cosa contiene l&#39;archivio, senza estrarlo (-t = elenca)
+tar -tf backup.tar.gz
+
+# Estrai in una cartella specifica (-C), che deve già esistere
+mkdir estratti_tar
+tar -xf backup.tar.gz -C estratti_tar
+
+# Estrai nella cartella corrente (tar riconosce da solo il tipo di compressione)
+tar -xf backup.tar.gz
+</code></pre>
+<p>Per ricordare le lettere: <strong>c</strong> = <em>create</em> (crea), <strong>x</strong> = <em>extract</em> (estrai), <strong>t</strong> = <em>list</em> (elenca), <strong>z</strong> = comprimi con gzip, <strong>v</strong> = <em>verbose</em> (mostra i file uno per uno), <strong>f</strong> = <em>file</em> (il nome dell&#39;archivio segue subito dopo).</p>
+<blockquote>
+<p>⚠️ <strong>Attenzione:</strong> l&#39;estrazione sovrascrive senza chiedere i file con lo stesso nome già presenti. Per questo conviene prima elencare il contenuto con <code>-t</code>.</p>
+</blockquote>
+<h3>13.2 Archivi <code>.zip</code></h3>
+<p>Su Debian i comandi per i file zip vanno installati:</p>
+<pre><code class="language-bash">sudo apt install zip unzip
+</code></pre>
+<pre><code class="language-bash"># Crea uno zip della cartella di prova (-r = con tutto il contenuto)
+zip -r archivio.zip da_archiviare/
+
+# Guarda il contenuto
+unzip -l archivio.zip
+
+# Estrai in una cartella specifica (-d), che viene creata se non esiste
+unzip archivio.zip -d estratti_zip
+</code></pre>
+<p>Con <code>unzip archivio.zip</code>, senza <code>-d</code>, i file vengono estratti nella cartella corrente. Se esistono già file con lo stesso nome, <code>unzip</code> chiede cosa fare: <code>y</code> sovrascrive, <code>n</code> salta, <code>A</code> sovrascrive tutti, <code>N</code> li salta tutti.</p>
+<hr>
+<h1>Parte III — Andare oltre</h1>
+<h2>14. Personalizzare la shell: alias e variabili</h2>
+<h3>14.1 Il file <code>.bashrc</code></h3>
+<p>Ogni volta che apri un terminale, Bash legge un file nascosto nella tua cartella personale: <strong><code>~/.bashrc</code></strong>. Ciò che scrivi lì viene <strong>riapplicato a ogni apertura del terminale</strong>. È il posto giusto per le tue personalizzazioni.</p>
+<blockquote>
+<p>⚠️ <strong>Attenzione:</strong> prima di modificarlo fanne sempre una copia di sicurezza:</p>
+<pre><code class="language-bash">cp ~/.bashrc ~/.bashrc.bak
+</code></pre>
+<p>Se qualcosa va storto, la ripristini con <code>cp ~/.bashrc.bak ~/.bashrc</code>.</p>
+</blockquote>
+<h3>14.2 Gli alias: le tue scorciatoie</h3>
+<p>Un <strong>alias</strong> è una parola inventata da te che sostituisce un comando lungo. Esempio: vuoi digitare <code>aggiorna</code> per aggiornare tutto il sistema.</p>
+<ol>
+<li>Apri il file:<pre><code class="language-bash">nano ~/.bashrc
+</code></pre>
+</li>
+<li>Vai in fondo al file con la freccia giù (o con <strong>Alt + /</strong>).</li>
+<li>Aggiungi queste righe:<pre><code class="language-bash"># Le mie scorciatoie
+alias aggiorna=&#39;sudo apt update &amp;&amp; sudo apt upgrade&#39;
+alias ll=&#39;ls -lh&#39;
+alias rm=&#39;rm -i&#39;
+</code></pre>
+<ul>
+<li><code>&amp;&amp;</code> significa &quot;esegui il secondo comando solo se il primo è riuscito&quot;.</li>
+<li>L&#39;alias <code>rm=&#39;rm -i&#39;</code> ti fa chiedere conferma prima di ogni cancellazione: un&#39;ottima protezione mentre impari.</li>
+</ul>
+</li>
+<li>Salva ed esci: <strong>Ctrl + O</strong>, <strong>Invio</strong>, <strong>Ctrl + X</strong>.</li>
+<li>Applica subito le modifiche, senza chiudere il terminale:<pre><code class="language-bash">source ~/.bashrc
+</code></pre>
+</li>
+</ol>
+<p>Ora prova <code>aggiorna</code> oppure <code>ll</code>. Per vedere tutti gli alias attivi digita <code>alias</code>.</p>
+<blockquote>
+<p>💡 <strong>Consiglio:</strong> nel <code>.bashrc</code> di Debian ci sono già alcuni alias pronti, disattivati con un <code>#</code> davanti (per esempio <code>#alias ll=&#39;ls -l&#39;</code>). Per attivarli basta cancellare il <code>#</code>.</p>
+</blockquote>
+<h3>14.3 Le variabili d&#39;ambiente</h3>
+<p>Una <strong>variabile</strong> è un&#39;etichetta che contiene un&#39;informazione. Il sistema ne ha già molte; per leggerne il valore si mette il simbolo <strong><code>$</code></strong> davanti al nome:</p>
+<pre><code class="language-bash">echo $HOME
+echo $USER
+</code></pre>
+<p>Risultato atteso:</p>
+<pre><code class="language-text">/home/mario
+mario
+</code></pre>
+<p>Puoi crearne di tue. Aggiungi in fondo a <code>~/.bashrc</code> righe come queste:</p>
+<pre><code class="language-bash"># L&#39;editor predefinito per i programmi che ne chiedono uno
+export EDITOR=&quot;nano&quot;
+
+# Una scorciatoia verso la cartella dei tuoi appunti
+export APPUNTI=&quot;$HOME/Documenti/appunti&quot;
+</code></pre>
+<p>Poi esegui <code>source ~/.bashrc</code>. Assegnare un percorso a una variabile <strong>non crea</strong> la cartella: creala tu, poi entraci usando la variabile:</p>
+<pre><code class="language-bash">mkdir -p &quot;$APPUNTI&quot;
+cd &quot;$APPUNTI&quot;
+pwd
+</code></pre>
+<p>Risultato atteso:</p>
+<pre><code class="language-text">/home/mario/Documenti/appunti
+</code></pre>
+<blockquote>
+<p>💡 <strong>Regola pratica:</strong> quando una variabile contiene un percorso, scrivila tra <strong>virgolette doppie</strong>, come <code>&quot;$APPUNTI&quot;</code>. Così il comando funziona anche se il percorso contiene spazi. Le virgolette semplici non vanno bene: con <code>&#39;$APPUNTI&#39;</code> la shell legge il testo così com&#39;è e non lo sostituisce con il valore della variabile.</p>
+</blockquote>
+<p>Il comando <code>export</code> rende la variabile disponibile anche ai programmi che avvii dal terminale.</p>
+<blockquote>
+<p>💡 <strong>La variabile <code>PATH</code>:</strong> contiene l&#39;elenco delle cartelle in cui la shell cerca i comandi (prova <code>echo $PATH</code>). Su Debian, se crei la cartella <code>~/bin</code> o <code>~/.local/bin</code> e ci metti i tuoi script, dal prossimo accesso potrai avviarli da qualunque posizione, senza <code>./</code> davanti.</p>
+</blockquote>
+<hr>
+<h2>15. Quando qualcosa va storto</h2>
+<h3>15.1 I messaggi di errore più comuni</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Messaggio (italiano / inglese)</th>
+<th align="left">Cosa significa</th>
+<th align="left">Cosa fare</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><code>comando non trovato</code> / <code>command not found</code></td>
+<td align="left">La shell non trova il comando.</td>
+<td align="left">Controlla maiuscole e lettere. Il programma potrebbe non essere installato (<code>apt search</code>). Se è uno script nella cartella corrente, aggiungi <code>./</code> davanti.</td>
+</tr>
+<tr>
+<td align="left"><code>Permesso negato</code> / <code>Permission denied</code></td>
+<td align="left">Non hai i permessi per quell&#39;operazione su quel file o cartella.</td>
+<td align="left">Prima controlla <strong>dove</strong> sei (<code>pwd</code>) e <strong>cosa</strong> stai facendo: spesso il percorso è sbagliato. Se è un tuo script, rendilo eseguibile con <code>chmod +x</code>. Se è un tuo file di lavoro creato per sbaglio con <code>sudo</code>, restituiscilo al tuo utente con <code>chown</code> (sezione 10.4). Usa <code>sudo</code> solo se stai facendo di proposito un&#39;operazione di amministrazione, come installare un programma o modificare un file in <code>/etc</code>.</td>
+</tr>
+<tr>
+<td align="left"><code>File o directory non esistente</code> / <code>No such file or directory</code></td>
+<td align="left">Il percorso è sbagliato.</td>
+<td align="left">Controlla dove sei con <code>pwd</code> e cosa c&#39;è con <code>ls</code>. Usa Tab per completare i nomi.</td>
+</tr>
+<tr>
+<td align="left"><code>-r non specificato; omessa la directory</code> / <code>-r not specified; omitting directory</code></td>
+<td align="left">Stai copiando una cartella senza <code>-r</code>.</td>
+<td align="left">Usa <code>cp -r</code>.</td>
+</tr>
+<tr>
+<td align="left"><code>Impossibile trovare il pacchetto</code> / <code>Unable to locate package</code></td>
+<td align="left"><code>apt</code> non conosce quel nome.</td>
+<td align="left">Esegui <code>sudo apt update</code> e controlla il nome con <code>apt search</code>.</td>
+</tr>
+<tr>
+<td align="left"><code>Impossibile acquisire il lock</code> / <code>Could not get lock</code></td>
+<td align="left">Un altro programma sta già installando o aggiornando.</td>
+<td align="left">Aspetta qualche minuto (magari sono in corso gli aggiornamenti automatici). Non cancellare i file di lock.</td>
+</tr>
+<tr>
+<td align="left"><code>mario non è nel file sudoers</code> / <code>mario is not in the sudoers file</code></td>
+<td align="left">Il tuo utente non può usare <code>sudo</code>.</td>
+<td align="left">Vedi la sezione 7.3.</td>
+</tr>
+<tr>
+<td align="left">Errore su <code>cdrom://</code> durante <code>apt update</code></td>
+<td align="left">Il sistema cerca ancora pacchetti sul DVD di installazione.</td>
+<td align="left">Apri il file con <code>sudo nano /etc/apt/sources.list</code> e metti un <code>#</code> all&#39;inizio della riga che contiene <code>cdrom</code>.</td>
+</tr>
+</tbody></table>
+<h3>15.2 Il terminale non risponde più</h3>
+<table>
+<thead>
+<tr>
+<th align="left">Situazione</th>
+<th align="left">Soluzione</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Un comando non finisce mai</td>
+<td align="left"><strong>Ctrl + C</strong></td>
+</tr>
+<tr>
+<td align="left">Sei dentro <code>man</code>, <code>less</code>, <code>top</code> o <code>htop</code></td>
+<td align="left">premi <strong>q</strong></td>
+</tr>
+<tr>
+<td align="left">Sei finito per sbaglio nell&#39;editor <code>vi</code>/<code>vim</code> (in basso vedi <code>~</code> su ogni riga vuota)</td>
+<td align="left">premi <strong>Esc</strong>, scrivi <code>:q!</code> e premi <strong>Invio</strong></td>
+</tr>
+<tr>
+<td align="left">Il terminale sembra congelato e non scrive nulla</td>
+<td align="left">forse hai premuto <strong>Ctrl + S</strong> (che blocca lo schermo): premi <strong>Ctrl + Q</strong> per sbloccarlo</td>
+</tr>
+<tr>
+<td align="left">Il prompt è diventato <code>&gt;</code> e non torna normale</td>
+<td align="left">hai lasciato aperte delle virgolette: premi <strong>Ctrl + C</strong> e riscrivi il comando</td>
+</tr>
+</tbody></table>
+<h3>15.3 Come affrontare un errore</h3>
+<ol>
+<li><strong>Leggi il messaggio</strong>: quasi sempre dice esattamente cosa non va, e spesso in quale file o riga.</li>
+<li><strong>Rileggi il comando</strong>: un errore di battitura, uno spazio in più o in meno, una maiuscola sbagliata.</li>
+<li><strong>Cerca il messaggio esatto</strong> su un motore di ricerca, tra virgolette, insieme alla parola &quot;Debian&quot;. Se il sistema è in italiano, prova anche con il messaggio in inglese: trovi molti più risultati.</li>
+</ol>
+<h3>15.4 Le regole di sicurezza</h3>
+<ul>
+<li>🛑 <strong>Non incollare comandi trovati su internet senza capirli</strong>, soprattutto se contengono <code>sudo</code>, <code>rm</code> o <code>curl ... | bash</code>. Il sito <strong>explainshell.com</strong> spiega pezzo per pezzo cosa fa un comando.</li>
+<li>🛑 <strong>Non usare <code>rm -rf</code></strong> su percorsi di cui non sei assolutamente sicuro.</li>
+<li>🛑 <strong>Fai le prove nella cartella <code>palestra</code></strong>, mai in <code>/mnt/c</code> (WSL) o nelle cartelle condivise con il Mac.</li>
+<li>⚠️ <strong>Fai una copia prima di modificare un file di configurazione</strong>: <code>sudo cp /etc/&lt;file&gt; /etc/&lt;file&gt;.bak</code>.</li>
+<li>⚠️ <strong>Usa <code>sudo</code> solo quando serve.</strong> Un <code>Permesso negato</code> non si risolve aggiungendo <code>sudo</code> d&#39;istinto: prima capisci perché succede. E non restare a lavorare come root.</li>
+<li>⚠️ <strong>Installa i programmi dai repository di Debian</strong> invece che da siti sconosciuti.</li>
+<li>💡 <strong>Tieni aggiornato il sistema</strong> con <code>sudo apt update &amp;&amp; sudo apt upgrade</code>.</li>
+</ul>
+<hr>
+<h2>16. Riepilogo: &quot;Cosa voglio fare?&quot;</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Voglio...</th>
+<th align="left">Comando</th>
+<th align="left">Nota</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">sapere dove mi trovo</td>
+<td align="left"><code>pwd</code></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">vedere cosa c&#39;è in una cartella</td>
+<td align="left"><code>ls -l</code></td>
+<td align="left"><code>-a</code> per i file nascosti</td>
+</tr>
+<tr>
+<td align="left">entrare in una cartella</td>
+<td align="left"><code>cd &lt;cartella&gt;</code></td>
+<td align="left"><code>cd ..</code> per salire, <code>cd</code> per tornare a casa</td>
+</tr>
+<tr>
+<td align="left">creare una cartella</td>
+<td align="left"><code>mkdir &lt;nome&gt;</code></td>
+<td align="left"><code>-p</code> per creare anche le intermedie</td>
+</tr>
+<tr>
+<td align="left">creare un file vuoto</td>
+<td align="left"><code>touch &lt;nome&gt;</code></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">leggere un file</td>
+<td align="left"><code>cat &lt;file&gt;</code> o <code>less &lt;file&gt;</code></td>
+<td align="left"><code>q</code> per uscire da <code>less</code></td>
+</tr>
+<tr>
+<td align="left">modificare un file</td>
+<td align="left"><code>nano &lt;file&gt;</code></td>
+<td align="left">Ctrl + O salva, Ctrl + X esce</td>
+</tr>
+<tr>
+<td align="left">modificare un file di sistema</td>
+<td align="left"><code>sudo nano &lt;file&gt;</code></td>
+<td align="left">prima fai una copia del file!</td>
+</tr>
+<tr>
+<td align="left">copiare</td>
+<td align="left"><code>cp &lt;origine&gt; &lt;destinazione&gt;</code></td>
+<td align="left"><code>-r</code> per le cartelle</td>
+</tr>
+<tr>
+<td align="left">spostare o rinominare</td>
+<td align="left"><code>mv &lt;origine&gt; &lt;destinazione&gt;</code></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">cancellare</td>
+<td align="left"><code>rm &lt;file&gt;</code></td>
+<td align="left">🛑 non c&#39;è il cestino</td>
+</tr>
+<tr>
+<td align="left">trovare un file</td>
+<td align="left"><code>find ~ -name &quot;&lt;nome&gt;&quot;</code></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">trovare una parola nei file</td>
+<td align="left"><code>grep -r &quot;&lt;parola&gt;&quot; &lt;cartella&gt;</code></td>
+<td align="left"><code>-i</code> ignora le maiuscole</td>
+</tr>
+<tr>
+<td align="left">installare un programma</td>
+<td align="left"><code>sudo apt install &lt;nome&gt;</code></td>
+<td align="left">prima <code>sudo apt update</code></td>
+</tr>
+<tr>
+<td align="left">aggiornare il sistema</td>
+<td align="left"><code>sudo apt update &amp;&amp; sudo apt upgrade</code></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">rendere eseguibile uno script</td>
+<td align="left"><code>chmod +x &lt;script&gt;</code></td>
+<td align="left">poi avvialo con <code>./&lt;script&gt;</code></td>
+</tr>
+<tr>
+<td align="left">vedere i programmi in esecuzione</td>
+<td align="left"><code>top</code> o <code>htop</code></td>
+<td align="left"><code>q</code> per uscire</td>
+</tr>
+<tr>
+<td align="left">chiudere un programma bloccato</td>
+<td align="left"><code>pkill &lt;nome&gt;</code></td>
+<td align="left"><code>kill -9 &lt;PID&gt;</code> come ultima risorsa</td>
+</tr>
+<tr>
+<td align="left">vedere lo spazio libero su disco</td>
+<td align="left"><code>df -h</code></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">controllare la connessione</td>
+<td align="left"><code>ping -c 4 debian.org</code></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">scaricare un file</td>
+<td align="left"><code>wget &lt;indirizzo&gt;</code></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">estrarre un <code>.tar.gz</code></td>
+<td align="left"><code>tar -xf &lt;archivio&gt;</code></td>
+<td align="left"><code>-t</code> per vedere il contenuto prima</td>
+</tr>
+<tr>
+<td align="left">estrarre uno <code>.zip</code></td>
+<td align="left"><code>unzip &lt;archivio&gt;</code></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">capire come funziona un comando</td>
+<td align="left"><code>man &lt;comando&gt;</code></td>
+<td align="left"><code>q</code> per uscire</td>
+</tr>
+<tr>
+<td align="left">fermare un comando in corso</td>
+<td align="left"><strong>Ctrl + C</strong></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">pulire lo schermo</td>
+<td align="left"><code>clear</code> o <strong>Ctrl + L</strong></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">ritrovare un comando già usato</td>
+<td align="left"><strong>Freccia Su</strong> o <strong>Ctrl + R</strong></td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">completare un nome</td>
+<td align="left"><strong>Tab</strong></td>
+<td align="left">due volte per vedere le scelte</td>
+</tr>
+<tr>
+<td align="left">copiare/incollare nel terminale</td>
+<td align="left"><strong>Ctrl + Shift + C / V</strong></td>
+<td align="left">su Mac: <strong>Control + Shift + C / V</strong></td>
+</tr>
+<tr>
+<td align="left">chiudere il terminale</td>
+<td align="left"><code>exit</code> o <strong>Ctrl + D</strong></td>
+<td align="left"></td>
+</tr>
+</tbody></table>
+<hr>
+<h2>17. Prossimi passi</h2>
+<p>Quando ti sentirai a tuo agio con i comandi di questo manuale, ecco alcune risorse gratuite per continuare:</p>
+<ul>
+<li><strong><code>man &lt;comando&gt;</code></strong>: la documentazione ufficiale è già nel tuo sistema.</li>
+<li><strong>Wiki di Debian</strong> (<code>wiki.debian.org</code>): guide su installazione, hardware e configurazione, molte disponibili anche in italiano.</li>
+<li><strong>Il manuale dell&#39;amministratore Debian</strong> (<code>debian-handbook.info</code>): un libro completo e gratuito, tradotto anche in italiano.</li>
+<li><strong>Linux Journey</strong> (<code>linuxjourney.com</code>): un percorso a lezioni brevi, in inglese.</li>
+<li><strong>OverTheWire – Bandit</strong> (<code>overthewire.org/wargames/bandit</code>): un gioco a livelli per allenarsi con il terminale, in inglese.</li>
+<li><strong>explainshell.com</strong>: incolli un comando e ti spiega cosa fa ogni sua parte.</li>
+</ul>
+<p>Argomenti da affrontare dopo: scrivere script più completi, collegarsi a un computer remoto con <code>ssh</code>, gestire i servizi con <code>systemctl</code>, usare un editor più potente come <code>vim</code>, e tenere traccia delle modifiche ai file con <code>git</code>.</p>
+<hr>
+<h2>Appendice A — Soluzioni degli esercizi</h2>
+<p><strong>Capitolo 3</strong></p>
+<ol>
+<li>Nel prompt <code>mario@debian:~$</code>, <code>mario</code> è l&#39;utente e <code>debian</code> il computer.</li>
+<li><code>man echo</code>, poi <code>/newline</code> e Invio, poi <code>q</code>.</li>
+<li>Premi la freccia Su e poi Invio.</li>
+</ol>
+<p><strong>Capitolo 4</strong></p>
+<ol>
+<li><code>cd /etc</code> e poi <code>pwd</code> (risultato: <code>/etc</code>).</li>
+<li><code>ls -l /etc</code> (oppure <code>ls -l</code>, visto che sei già lì).</li>
+<li><code>cd</code> (oppure <code>cd ~</code>).</li>
+<li><code>ls -a ~</code>: sì, il file <code>.bashrc</code> compare nell&#39;elenco.</li>
+</ol>
+<p><strong>Capitolo 5</strong></p>
+<ol>
+<li><code>cd ~/palestra</code>, poi <code>mkdir esercizi</code> e <code>touch esercizi/lista.txt</code>.</li>
+<li><code>nano esercizi/lista.txt</code>, scrivi le righe, poi Ctrl + O, Invio, Ctrl + X.</li>
+<li><code>cat esercizi/lista.txt</code>.</li>
+<li><code>cp esercizi/lista.txt esercizi/lista_vecchia.txt</code>, poi <code>rm esercizi/lista_vecchia.txt</code>.</li>
+</ol>
+<p><strong>Capitolo 8</strong></p>
+<ol>
+<li><code>sudo apt update</code>.</li>
+<li><code>apt search cowsay</code>, poi <code>apt show cowsay</code>.</li>
+<li><code>sudo apt install cowsay</code>, poi <code>cowsay Ciao</code>, poi <code>sudo apt remove cowsay</code>. Se il comando <code>cowsay</code> non viene trovato, prova <code>/usr/games/cowsay Ciao</code>: su Debian i giochi sono installati in una cartella a parte.</li>
+</ol>
+<p><strong>Capitolo 9</strong></p>
+<ol>
+<li><code>find /etc -name &quot;*.conf&quot; 2&gt;/dev/null</code>.</li>
+<li><code>grep &quot;$USER&quot; /etc/group</code>.</li>
+<li><code>apt list --installed &gt; pacchetti.txt</code>, poi <code>wc -l pacchetti.txt</code>.</li>
+</ol>
+<p><strong>Capitolo 10</strong></p>
+<ol>
+<li><code>touch segreto.txt</code>, poi <code>chmod 600 segreto.txt</code>.</li>
+<li><code>ls -l segreto.txt</code>: la prima colonna è <code>-rw-------</code>.</li>
+<li><code>nano ciao.sh</code> e aggiungi in fondo la riga <code>ls</code>, poi salva ed esegui <code>./ciao.sh</code>.</li>
+</ol>
+
+    </article>
+  </main>
+</div>
+<aside class="panel" id="cmdPanel" aria-label="Elenco dei comandi" hidden>
+  <div class="panel-head">
+    <div class="row">
+      <h2>Trova un comando</h2>
+      <button class="icon-btn" id="cmdClose" type="button" aria-label="Chiudi l'elenco dei comandi">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <input id="cmdFilter" type="search" autocomplete="off" spellcheck="false" placeholder="Filtra: copiare, ls, password, zip…" aria-label="Filtra i comandi">
+    <div class="row">
+      <div class="seg" role="group" aria-label="Tipo di elenco">
+        <button type="button" id="segTask" aria-pressed="true">Cosa voglio fare?</button>
+        <button type="button" id="segAll" aria-pressed="false">Tutti i comandi</button>
+      </div>
+      <span class="count" id="cmdCount"></span>
+    </div>
+  </div>
+  <div class="panel-body" id="cmdList"></div>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
+<button class="totop" id="toTop" type="button" aria-label="Torna all'inizio" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+</button>
+
+<script>
+(() => {
+  const doc = document.getElementById('doc');
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // Minuscole e senza accenti, mantenendo la stessa lunghezza del testo originale
+  const norm = (s) => {
+    let o = '';
+    for (const ch of s.toLowerCase()) {
+      const d = ch.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      o += d.length === 1 ? d : ch;
+    }
+    return o;
+  };
+  const slug = (s) => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+  const EMOJI = /^\s*(\p{Extended_Pictographic}️?)\s*/u;
+  const KIND = { '💡': 'tip', '⚠': 'warn', '🛑': 'danger', '🍎': 'mac' };
+  const kindOf = (t) => { const m = t.trimStart().match(EMOJI); return m ? KIND[m[1].replace('️', '')] : null; };
+  const stripLead = (el) => {
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = w.nextNode())) {
+      if (!n.nodeValue.trim()) continue;
+      n.nodeValue = n.nodeValue.replace(EMOJI, '');
+      return;
+    }
+  };
+  const copyText = (text, btn, done) => {
+    const ok = () => { const t = btn.textContent; btn.textContent = done; setTimeout(() => (btn.textContent = t), 1400); };
+    const fallback = () => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); ok(); } catch (e) { /* lascia il testo selezionabile */ }
+      ta.remove();
+    };
+    try { navigator.clipboard.writeText(text).then(ok, fallback); } catch (e) { fallback(); }
+  };
+
+  /* ---- Copertina ---- */
+  const hero = document.createElement('header');
+  hero.className = 'hero';
+  let n = doc.firstElementChild;
+  doc.insertBefore(hero, n);
+  while (n && n.tagName !== 'HR') { const next = n.nextElementSibling; hero.appendChild(n); n = next; }
+  if (n) n.remove();
+  const ed = hero.querySelector('h1 + p');
+  if (ed) ed.className = 'edition';
+  const chips = document.createElement('div');
+  chips.className = 'chips';
+  chips.innerHTML =
+    '<a class="chip primary" href="#cap-1">Inizia dal capitolo 1</a>' +
+    '<a class="chip" href="#cap-6">Sessione guidata</a>' +
+    '<button class="chip" type="button" data-open-cmds>Elenco dei comandi</button>' +
+    '<a class="chip" href="#sez-1-4">Tasti su Mac</a>' +
+    '<a class="chip" href="#cap-15">Quando qualcosa va storto</a>';
+  hero.appendChild(chips);
+
+  /* ---- Titoli e ancore ---- */
+  let chap = null, part = 0;
+  doc.querySelectorAll('h1, h2, h3').forEach((h) => {
+    if (h.closest('.hero')) return;
+    const t = h.textContent.trim();
+    if (h.tagName === 'H1') {
+      part++;
+      h.id = 'parte-' + part;
+      h.classList.add('part');
+      const [lbl, ...rest] = h.innerHTML.split(' — ');
+      if (rest.length) h.innerHTML = `<span class="lbl">${lbl}</span>${rest.join(' — ')}`;
+    } else if (h.tagName === 'H2') {
+      const m = t.match(/^(\d+)\.\s/);
+      if (m) {
+        chap = m[1];
+        h.id = 'cap-' + chap;
+        h.innerHTML = `<span class="num">${chap}</span><span class="ttl">${h.innerHTML.replace(/^\s*\d+\.\s+/, '')}</span>`;
+      } else {
+        chap = t.startsWith('Appendice') ? 'A' : null;
+        h.id = t.startsWith('Appendice') ? 'appendice' : slug(t);
+        h.innerHTML = `<span class="ttl">${h.innerHTML}</span>`;
+      }
+    } else {
+      const m = t.match(/^(\d+)\.(\d+)\s/);
+      if (m) h.id = `sez-${m[1]}-${m[2]}`;
+      else if (/Mettiti alla prova/.test(t)) h.id = 'esercizi-' + chap;
+      else h.id = (chap ? chap + '-' : '') + slug(t);
+    }
+  });
+
+  /* ---- Indice iniziale cliccabile ---- */
+  const idx = $('indice');
+  if (idx) {
+    const grid = document.createElement('div');
+    grid.className = 'index-grid';
+    let card = null, el = idx.nextElementSibling;
+    const extra = [];
+    while (el && el.tagName !== 'HR' && el.tagName !== 'H1' && el.tagName !== 'H2') {
+      const next = el.nextElementSibling;
+      if (el.tagName === 'P' && next && next.tagName === 'OL') {
+        card = document.createElement('div'); card.className = 'index-card'; grid.appendChild(card); card.appendChild(el);
+      } else if (el.tagName === 'OL' && card) {
+        const start = parseInt(el.getAttribute('start') || '1', 10);
+        [...el.children].forEach((li, i) => { li.innerHTML = `<a href="#cap-${start + i}">${li.innerHTML}</a>`; });
+        card.appendChild(el);
+      } else { extra.push(el); }
+      el = next;
+    }
+    idx.after(grid);
+    extra.forEach((p) => {
+      if (/Appendice/.test(p.textContent)) { p.className = 'index-extra'; p.innerHTML = `<a href="#appendice">${p.innerHTML}</a>`; }
+      grid.after(p);
+    });
+  }
+
+  /* ---- Tabelle scorrevoli ---- */
+  doc.querySelectorAll('table').forEach((t) => {
+    const w = document.createElement('div'); w.className = 'table-wrap';
+    t.before(w); w.appendChild(t);
+  });
+
+  /* ---- Blocchi di codice ---- */
+  doc.querySelectorAll('pre > code').forEach((code) => {
+    const pre = code.parentElement;
+    const lang = (code.className.match(/language-(\w+)/) || [])[1] || 'text';
+    let raw = code.textContent.replace(/\n$/, '');
+    const box = document.createElement('div');
+    pre.before(box); box.appendChild(pre);
+    if (lang === 'bash') {
+      // Tre tipi di blocco: da provare, da adattare (primo commento "# Da adattare:"), contenuto di uno script
+      const lines = raw.split('\n');
+      const adapt = lines[0].match(/^#\s*Da adattare:\s*(.*)$/);
+      let kind = 'try';
+      if (adapt) { kind = 'adapt'; lines.shift(); raw = lines.join('\n'); }
+      else if (lines[0].startsWith('#!')) kind = 'file';
+      box.className = 'code is-cmd' + (kind === 'adapt' ? ' is-adapt' : '');
+      box.dataset.raw = raw;
+      box.dataset.kind = kind;
+      code.innerHTML = raw.split('\n').map((l) => (/^\s*#(?!!)/.test(l) ? `<span class="c">${esc(l)}</span>` : esc(l))).join('\n');
+      const label = { try: 'Prova nel terminale', adapt: 'Esempio da adattare', file: 'Contenuto del file' }[kind];
+      const done = kind === 'adapt' ? 'Copiato: ora adattalo' : 'Copiato';
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.innerHTML = `<span>${label}</span><button class="copy" type="button">Copia</button>`;
+      bar.querySelector('button').addEventListener('click', (e) => copyText(raw, e.currentTarget, done));
+      box.prepend(bar);
+      if (adapt) {
+        const note = document.createElement('div');
+        note.className = 'adapt-note';
+        note.innerHTML = `<strong>Da adattare:</strong> ${esc(adapt[1])}`;
+        bar.after(note);
+      }
+    } else {
+      box.className = 'code is-out';
+    }
+  });
+
+  /* ---- Riquadri colorati ---- */
+  doc.querySelectorAll('blockquote').forEach((bq) => {
+    const p = bq.firstElementChild;
+    if (!p) return;
+    const k = kindOf(p.textContent);
+    if (!k) return;
+    bq.classList.add('callout', k);
+    stripLead(p);
+  });
+  doc.querySelectorAll('li').forEach((li) => {
+    const k = kindOf(li.textContent);
+    if (k && k !== 'mac') { li.classList.add('flag', k); stripLead(li); }
+  });
+
+  /* ---- Esercizi con soluzioni a scomparsa ---- */
+  const solutions = {};
+  const app = $('appendice');
+  if (app) {
+    let el = app.nextElementSibling;
+    while (el && !/^H[12]$/.test(el.tagName)) {
+      const m = el.tagName === 'P' && el.textContent.trim().match(/^Capitolo (\d+)$/);
+      if (m && el.nextElementSibling && el.nextElementSibling.tagName === 'OL') solutions[m[1]] = el.nextElementSibling;
+      el = el.nextElementSibling;
+    }
+  }
+  doc.querySelectorAll('h3[id^="esercizi-"]').forEach((h) => {
+    stripLead(h);
+    const box = document.createElement('div');
+    box.className = 'exercise';
+    h.before(box); box.appendChild(h);
+    const list = box.nextElementSibling;
+    if (list && list.tagName === 'OL') box.appendChild(list);
+    const sol = solutions[h.id.split('-')[1]];
+    if (sol) {
+      const d = document.createElement('details');
+      d.innerHTML = '<summary>Mostra le soluzioni</summary>';
+      d.appendChild(sol.cloneNode(true));
+      box.appendChild(d);
+    }
+  });
+
+  /* ---- Sezioni per la ricerca ---- */
+  const sections = [];
+  let cur = null, curChap = null;
+  for (const el of doc.children) {
+    if (el.classList.contains('hero')) { cur = { id: 'inizio', title: 'Introduzione', chap: null, els: [el], target: el }; sections.push(cur); continue; }
+    if (el.matches('h1.part')) { cur = null; continue; }
+    if (el.tagName === 'H2') {
+      curChap = { id: el.id, num: el.querySelector('.num')?.textContent || '', title: el.querySelector('.ttl')?.textContent || el.textContent };
+      cur = { id: el.id, title: curChap.title, chap: curChap, els: [el], target: el };
+      sections.push(cur); continue;
+    }
+    const h3 = el.tagName === 'H3' ? el : (el.classList.contains('exercise') ? el.querySelector('h3') : null);
+    if (h3) { cur = { id: h3.id, title: h3.textContent.trim(), chap: curChap, els: [el], target: el }; sections.push(cur); continue; }
+    if (cur) cur.els.push(el);
+  }
+  const where = (s) => s.chap ? (s.chap.num ? `Cap. ${s.chap.num} · ${s.chap.title}` : s.chap.title) : 'Inizio';
+  // Testo leggibile di un blocco, senza etichette e pulsanti aggiunti dalla pagina
+  const textOf = (e) => {
+    const c = e.cloneNode(true);
+    c.querySelectorAll('.bar, button, summary, .chips').forEach((x) => x.remove());
+    return c.textContent;
+  };
+  sections.forEach((s) => {
+    s.text = s.els.map(textOf).join(' ').replace(/\s+/g, ' ').trim();
+    s.ntext = norm(s.text);
+    s.ntitle = norm(s.title);
+  });
+
+  /* ---- Elenco dei comandi ---- */
+  const cmds = [];
+  const sectionOf = new Map();
+  sections.forEach((s) => s.els.forEach((e) => {
+    if (e.matches && e.matches('.code.is-cmd')) sectionOf.set(e, s);
+    e.querySelectorAll && e.querySelectorAll('.code.is-cmd').forEach((c) => sectionOf.set(c, s));
+  }));
+  doc.querySelectorAll('.code.is-cmd').forEach((box) => {
+    const raw = box.dataset.raw || '';
+    if (box.dataset.kind === 'file') return;
+    const adaptBlock = box.dataset.kind === 'adapt';
+    const s = sectionOf.get(box);
+    if (!s || s.chap?.num === '16') return;
+    let note = '';
+    const seen = new Set();
+    raw.split('\n').forEach((line) => {
+      const l = line.trim();
+      if (!l) return;
+      if (l.startsWith('#')) { note = l.replace(/^#+\s*/, '').replace(/^\d+\.\s*/, ''); return; }
+      if (seen.has(l)) return;
+      seen.add(l);
+      cmds.push({ cmd: l, desc: note || s.title.replace(/^\d+\.\d+\s*/, ''), sec: s, el: box, adapt: adaptBlock || /<[^>]+>/.test(l) });
+      note = '';
+    });
+  });
+  const tasks = [];
+  const sumTable = $('cap-16') && sections.find((s) => s.id === 'cap-16')?.els.map((e) => e.querySelector && e.querySelector('table')).find(Boolean);
+  if (sumTable) {
+    const s16 = sections.find((s) => s.id === 'cap-16');
+    sumTable.querySelectorAll('tbody tr').forEach((tr) => {
+      const td = tr.children;
+      if (td.length < 2) return;
+      const codeEl = td[1].querySelector('code');
+      tasks.push({
+        cmd: td[1].textContent.trim(),
+        copy: codeEl ? codeEl.textContent : null,
+        desc: 'Voglio ' + td[0].textContent.trim(),
+        note: td[2] ? td[2].textContent.trim() : '',
+        sec: s16, el: tr,
+        adapt: /<[^>]+>/.test(td[1].textContent),
+      });
+    });
+  }
+
+  /* ---- Indice laterale ---- */
+  const tocInner = $('tocInner');
+  const tocLinks = new Map();
+  let group = null;
+  const tocLink = (id, html, cls) => {
+    const a = document.createElement('a');
+    a.href = '#' + id; a.innerHTML = html; if (cls) a.className = cls;
+    tocLinks.set(id, a);
+    return a;
+  };
+  [...doc.querySelectorAll('h1.part, h2, h3')].forEach((h) => {
+    if (h.closest('.hero')) return;
+    if (h.tagName === 'H1') {
+      const d = document.createElement('div'); d.className = 'toc-part';
+      d.textContent = h.textContent.replace(/^(Parte [IVX]+)/, '$1 · ');
+      tocInner.appendChild(d); return;
+    }
+    if (h.tagName === 'H2') {
+      group = document.createElement('div'); group.className = 'toc-group';
+      const num = h.querySelector('.num')?.textContent || '';
+      const ttl = h.querySelector('.ttl')?.innerHTML || h.innerHTML;
+      group.appendChild(tocLink(h.id, `<span class="n">${num || '·'}</span><span>${ttl}</span>`, 'toc-chap'));
+      const secs = document.createElement('div'); secs.className = 'toc-secs';
+      group.appendChild(secs);
+      tocInner.appendChild(group); return;
+    }
+    if (h.id.startsWith('esercizi-') || !group) return;
+    group.querySelector('.toc-secs').appendChild(tocLink(h.id, h.innerHTML));
+  });
+  tocInner.querySelectorAll('.toc-group').forEach((g) => { if (!g.querySelector('.toc-secs').children.length) g.querySelector('.toc-secs').remove(); });
+
+  /* ---- Pannelli: indice (mobile) e comandi ---- */
+  const sidebar = $('toc'), scrim = $('scrim'), panel = $('cmdPanel');
+  const isNarrow = () => matchMedia('(max-width: 960px)').matches;
+  const syncScrim = () => { scrim.hidden = !(panel.hidden === false || (isNarrow() && sidebar.classList.contains('open'))); };
+  const setMenu = (open) => { sidebar.classList.toggle('open', open); $('menuBtn').setAttribute('aria-expanded', String(open)); syncScrim(); };
+  const setPanel = (open) => {
+    panel.hidden = !open; $('cmdBtn').setAttribute('aria-expanded', String(open)); syncScrim();
+    if (open) { renderCmds(); setTimeout(() => $('cmdFilter').focus(), 30); }
+  };
+  $('menuBtn').addEventListener('click', () => setMenu(!sidebar.classList.contains('open')));
+  $('cmdBtn').addEventListener('click', () => setPanel(panel.hidden));
+  $('cmdClose').addEventListener('click', () => setPanel(false));
+  scrim.addEventListener('click', () => { setMenu(false); setPanel(false); });
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-open-cmds]')) setPanel(true); });
+  sidebar.addEventListener('click', (e) => { if (e.target.closest('a') && isNarrow()) setMenu(false); });
+
+  /* ---- Evidenziazione e salto ---- */
+  const clearHits = () => doc.querySelectorAll('mark.hit').forEach((m) => m.replaceWith(document.createTextNode(m.textContent)));
+  const ranges = (text, terms) => {
+    const nt = norm(text), out = [];
+    terms.forEach((t) => { let i = nt.indexOf(t); while (i > -1 && t) { out.push([i, i + t.length]); i = nt.indexOf(t, i + t.length); } });
+    out.sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    out.forEach((r) => { const last = merged[merged.length - 1]; if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]); else merged.push(r.slice()); });
+    return merged;
+  };
+  const hl = (text, terms) => {
+    let html = '', pos = 0;
+    ranges(text, terms).forEach(([a, b]) => { html += esc(text.slice(pos, a)) + '<mark>' + esc(text.slice(a, b)) + '</mark>'; pos = b; });
+    return html + esc(text.slice(pos));
+  };
+  const markIn = (els, terms) => {
+    clearHits();
+    if (!terms.length) return;
+    els.forEach((root) => {
+      const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: (t) => (t.parentElement.closest('button, summary, .bar') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      });
+      const nodes = [];
+      while (w.nextNode()) nodes.push(w.currentNode);
+      nodes.forEach((t) => {
+        const r = ranges(t.nodeValue, terms);
+        if (!r.length) return;
+        const frag = document.createDocumentFragment();
+        let pos = 0;
+        r.forEach(([a, b]) => {
+          frag.appendChild(document.createTextNode(t.nodeValue.slice(pos, a)));
+          const m = document.createElement('mark'); m.className = 'hit'; m.textContent = t.nodeValue.slice(a, b);
+          frag.appendChild(m); pos = b;
+        });
+        frag.appendChild(document.createTextNode(t.nodeValue.slice(pos)));
+        t.replaceWith(frag);
+      });
+    });
+  };
+  const goTo = (el, sec, terms) => {
+    setPanel(false); setMenu(false); hideResults();
+    const details = el.closest('details');
+    if (details) details.open = true;
+    if (sec && terms) markIn(sec.els, terms); else clearHits();
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1900);
+  };
+
+  /* ---- Ricerca ---- */
+  const q = $('q'), results = $('results');
+  let hits = [], sel = -1;
+  const termsOf = (v) => norm(v).trim().split(/\s+/).filter(Boolean);
+  const hideResults = () => { results.hidden = true; sel = -1; };
+  const snippet = (s, terms) => {
+    const first = Math.min(...terms.map((t) => { const i = s.ntext.indexOf(t); return i < 0 ? Infinity : i; }));
+    if (!isFinite(first)) return esc(s.text.slice(0, 150)) + (s.text.length > 150 ? '…' : '');
+    const a = Math.max(0, first - 60), b = Math.min(s.text.length, first + 130);
+    return (a > 0 ? '…' : '') + hl(s.text.slice(a, b), terms) + (b < s.text.length ? '…' : '');
+  };
+  const runSearch = () => {
+    const terms = termsOf(q.value);
+    if (!terms.length) { hideResults(); clearHits(); return; }
+    const cmdHits = [...tasks, ...cmds].filter((c) => { const t = norm(c.cmd + ' ' + c.desc); return terms.every((x) => t.includes(x)); }).slice(0, 6);
+    const secHits = sections.map((s) => {
+      let score = 0;
+      for (const t of terms) {
+        const inTitle = s.ntitle.includes(t);
+        let c = 0, i = s.ntext.indexOf(t);
+        while (i > -1 && c < 25) { c++; i = s.ntext.indexOf(t, i + t.length); }
+        if (!c && !inTitle) return null;
+        score += (inTitle ? 12 : 0) + c;
+      }
+      return { s, score };
+    }).filter(Boolean).sort((a, b) => b.score - a.score).slice(0, 14);
+    hits = [];
+    let html = '';
+    if (cmdHits.length) {
+      html += '<div class="grp">Comandi</div>';
+      cmdHits.forEach((c) => {
+        hits.push({ el: c.el.closest('.code, .table-wrap') || c.el, sec: c.sec, terms });
+        html += `<button class="res" type="button" role="option" data-i="${hits.length - 1}"><code>${hl(c.cmd, terms)}</code><span class="s">${hl(c.desc, terms)}</span><span class="w">${esc(where(c.sec))}</span></button>`;
+      });
+    }
+    if (secHits.length) {
+      html += '<div class="grp">Nel manuale</div>';
+      secHits.forEach(({ s }) => {
+        hits.push({ el: s.target, sec: s, terms });
+        html += `<button class="res" type="button" role="option" data-i="${hits.length - 1}"><span class="t">${hl(s.title, terms)}</span><span class="w">${esc(where(s))}</span><span class="s">${snippet(s, terms)}</span></button>`;
+      });
+    }
+    if (!hits.length) html = `<div class="empty">Nessun risultato per “${esc(q.value.trim())}”. Prova con una parola più corta o senza accenti.</div>`;
+    results.innerHTML = html;
+    results.hidden = false;
+    sel = -1;
+  };
+  let timer;
+  q.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(runSearch, 90); });
+  q.addEventListener('focus', () => { if (q.value.trim()) runSearch(); });
+  const select = (i) => {
+    const items = results.querySelectorAll('.res');
+    items.forEach((b) => b.classList.remove('sel'));
+    sel = Math.max(-1, Math.min(items.length - 1, i));
+    if (sel > -1) { items[sel].classList.add('sel'); items[sel].scrollIntoView({ block: 'nearest' }); }
+  };
+  q.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (results.hidden) runSearch(); select(sel + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); select(sel - 1); }
+    else if (e.key === 'Enter') { e.preventDefault(); const h = hits[sel > -1 ? sel : 0]; if (h) { goTo(h.el, h.sec, h.terms); q.blur(); } }
+    else if (e.key === 'Escape') { if (!results.hidden) hideResults(); else { q.value = ''; clearHits(); q.blur(); } }
+  });
+  results.addEventListener('click', (e) => { const b = e.target.closest('.res'); if (!b) return; const h = hits[+b.dataset.i]; goTo(h.el, h.sec, h.terms); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.search')) hideResults(); });
+
+  /* ---- Pannello comandi ---- */
+  const list = $('cmdList'), filter = $('cmdFilter');
+  let mode = 'task';
+  const row = (c, i, kind) => {
+    const copy = kind === 'task' ? c.copy : c.cmd;
+    const tag = c.adapt ? '<span class="tag">Da adattare</span>' : '';
+    return `<div class="cmd-row"><button class="jump" type="button" data-k="${kind}" data-i="${i}"><code>${esc(c.cmd)}</code><span class="d">${esc(c.desc)}${c.note ? ' — ' + esc(c.note) : ''}</span><span class="w">${tag}${esc(where(c.sec))}</span></button>${copy ? `<button class="copy-sm" type="button" data-copy="${esc(copy)}" data-adapt="${c.adapt ? 1 : 0}">Copia</button>` : ''}</div>`;
+  };
+  const renderCmds = () => {
+    const terms = termsOf(filter.value);
+    const match = (c) => { const t = norm(c.cmd + ' ' + c.desc + ' ' + (c.note || '') + ' ' + where(c.sec)); return terms.every((x) => t.includes(x)); };
+    let html = '', count = 0;
+    if (mode === 'task') {
+      tasks.forEach((c, i) => { if (match(c)) { html += row(c, i, 'task'); count++; } });
+    } else {
+      let last = null;
+      cmds.forEach((c, i) => {
+        if (!match(c)) return;
+        const g = where(c.sec);
+        if (g !== last) { html += `<div class="cmd-grp">${esc(g)}</div>`; last = g; }
+        html += row(c, i, 'cmd'); count++;
+      });
+    }
+    list.innerHTML = html || '<p style="padding:16px 8px;color:var(--muted)">Nessun comando corrisponde al filtro.</p>';
+    $('cmdCount').textContent = count === 1 ? '1 voce' : `${count} voci`;
+  };
+  filter.addEventListener('input', renderCmds);
+  const setMode = (m) => { mode = m; $('segTask').setAttribute('aria-pressed', String(m === 'task')); $('segAll').setAttribute('aria-pressed', String(m === 'all')); renderCmds(); };
+  $('segTask').addEventListener('click', () => setMode('task'));
+  $('segAll').addEventListener('click', () => setMode('all'));
+  list.addEventListener('click', (e) => {
+    const cp = e.target.closest('.copy-sm');
+    if (cp) { copyText(cp.dataset.copy, cp, cp.dataset.adapt === '1' ? 'Copiato: adattalo' : 'Copiato'); return; }
+    const j = e.target.closest('.jump');
+    if (!j) return;
+    const c = (j.dataset.k === 'task' ? tasks : cmds)[+j.dataset.i];
+    goTo(j.dataset.k === 'task' ? c.el : c.el, null, null);
+  });
+
+  /* ---- Tasti rapidi ---- */
+  document.addEventListener('keydown', (e) => {
+    const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+    if (e.key === '/' && !typing) { e.preventDefault(); q.focus(); q.select(); }
+    else if (e.key === 'Escape') { setPanel(false); setMenu(false); }
+  });
+
+  /* ---- Posizione di lettura: indice attivo, barra di avanzamento, torna su ---- */
+  const heads = [...doc.querySelectorAll('h2[id], h3[id]')].filter((h) => tocLinks.has(h.id) || h.id.startsWith('esercizi-'));
+  let activeId = null, ticking = false;
+  const onScroll = () => {
+    ticking = false;
+    const y = window.scrollY, max = document.documentElement.scrollHeight - innerHeight;
+    $('progressBar').style.transform = `scaleX(${max > 0 ? Math.min(1, y / max) : 0})`;
+    $('toTop').hidden = y < 900;
+    let cur = null;
+    for (const h of heads) { if (h.getBoundingClientRect().top < 140) cur = h; else break; }
+    let id = cur ? cur.id : null;
+    if (id && id.startsWith('esercizi-')) { const i = heads.indexOf(cur); for (let k = i; k >= 0; k--) if (tocLinks.has(heads[k].id)) { id = heads[k].id; break; } }
+    if (id === activeId) return;
+    activeId = id;
+    tocInner.querySelectorAll('a.active').forEach((a) => a.classList.remove('active'));
+    tocInner.querySelectorAll('.toc-group.open').forEach((g) => g.classList.remove('open'));
+    const a = id && tocLinks.get(id);
+    if (a) {
+      a.classList.add('active');
+      const g = a.closest('.toc-group');
+      if (g) { g.classList.add('open'); g.querySelector('.toc-chap').classList.add('active'); }
+      const r = a.getBoundingClientRect(), sr = sidebar.getBoundingClientRect();
+      if (!isNarrow() && (r.top < sr.top + 40 || r.bottom > sr.bottom - 40)) sidebar.scrollTop += r.top - sr.top - sr.height / 3;
+    }
+  };
+  addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  addEventListener('resize', () => { syncScrim(); onScroll(); });
+  $('toTop').addEventListener('click', () => scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }));
+
+  if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+  onScroll();
+})();
+</script>
+</body>
+</html>

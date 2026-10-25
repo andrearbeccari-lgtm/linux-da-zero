@@ -1,0 +1,12 @@
+{
+  "name": "linux-da-zero-build",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Genera la pagina interattiva index.html dal manuale Markdown",
+  "scripts": {
+    "build": "node build.mjs ../linux_da_zero_debian.md template.html artifact.html ../index.html"
+  },
+  "dependencies": {
+    "marked": "12.0.2"
+  }
+}

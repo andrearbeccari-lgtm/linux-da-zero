@@ -1,0 +1,938 @@
+<title>Linux da zero</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: barra superiore con ricerca, indice a sinistra, testo centrale (~72 caratteri), pannello comandi che scorre da destra */
+:root {
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --surface-2: #e9ecf1;
+  --fg: #1a2030;
+  --muted: #586172;
+  --line: #d9dee6;
+  --accent: #a8234b;
+  --accent-soft: #f6e3ea;
+  --code-bg: #1c2130;
+  --code-bar: #262c3d;
+  --code-fg: #e5e9f0;
+  --code-dim: #8d97ab;
+  --code-adapt: #f2b84b;
+  --out-bg: #e8ebf0;
+  --out-fg: #283040;
+  --tip: #17694c; --tip-bg: #e3f2eb; --tip-line: #b6dccb;
+  --warn: #855600; --warn-bg: #fcf0d6; --warn-line: #edd096;
+  --danger: #a5281e; --danger-bg: #fbe6e3; --danger-line: #efbab3;
+  --mac: #33508e; --mac-bg: #e7ecf8; --mac-line: #c1cdea;
+  --hit: #ffd966; --hit-fg: #1a2030;
+  --shadow: 0 10px 30px rgba(20, 26, 40, .14);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  --top: 60px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11141b; --surface: #181c26; --surface-2: #222836; --fg: #e3e7ee; --muted: #9ba4b4; --line: #2b3240;
+    --accent: #ec7393; --accent-soft: #3a1e29;
+    --code-bg: #0b0e14; --code-bar: #161a24; --code-fg: #e5e9f0; --code-dim: #7f899d;
+    --out-bg: #1e2330; --out-fg: #d0d6e0;
+    --tip: #6ccaa1; --tip-bg: #13261e; --tip-line: #24493a;
+    --warn: #e8b04c; --warn-bg: #2a2112; --warn-line: #4f3d1c;
+    --danger: #f2837a; --danger-bg: #2d1715; --danger-line: #5a2c27;
+    --mac: #9bb2ea; --mac-bg: #19213a; --mac-line: #2f3d66;
+    --hit: #7a6214; --hit-fg: #fff6d6;
+    --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11141b; --surface: #181c26; --surface-2: #222836; --fg: #e3e7ee; --muted: #9ba4b4; --line: #2b3240;
+  --accent: #ec7393; --accent-soft: #3a1e29;
+  --code-bg: #0b0e14; --code-bar: #161a24; --code-fg: #e5e9f0; --code-dim: #7f899d;
+  --out-bg: #1e2330; --out-fg: #d0d6e0;
+  --tip: #6ccaa1; --tip-bg: #13261e; --tip-line: #24493a;
+  --warn: #e8b04c; --warn-bg: #2a2112; --warn-line: #4f3d1c;
+  --danger: #f2837a; --danger-bg: #2d1715; --danger-line: #5a2c27;
+  --mac: #9bb2ea; --mac-bg: #19213a; --mac-line: #2f3d66;
+  --hit: #7a6214; --hit-fg: #fff6d6;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 17px/1.65 var(--f-body);
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 25; background: var(--surface);
+}
+a { color: var(--accent); text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+button { font: inherit; color: inherit; }
+
+/* ---------- Barra superiore ---------- */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30;
+  height: var(--top);
+  display: flex; align-items: center; gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  display: flex; align-items: baseline; gap: 8px; white-space: nowrap;
+  font: 700 19px/1 var(--f-display); color: var(--fg); text-decoration: none;
+  width: 266px; flex: none;
+}
+.brand small { font: 600 11px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.icon-btn {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 40px; min-width: 40px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface); cursor: pointer;
+  font-weight: 700; font-size: 15px;
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+.icon-btn svg { width: 18px; height: 18px; }
+#menuBtn { display: none; padding: 0; }
+.search { position: relative; flex: 1; min-width: 0; max-width: 600px; }
+.search svg { position: absolute; left: 12px; top: 11px; width: 18px; height: 18px; color: var(--muted); pointer-events: none; }
+.search input {
+  width: 100%; height: 40px; padding: 0 44px 0 38px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); color: var(--fg); font: 16px var(--f-body);
+}
+.search input::placeholder { color: var(--muted); }
+.search kbd {
+  position: absolute; right: 10px; top: 9px; padding: 1px 7px;
+  font: 600 12px/20px var(--f-mono); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+}
+.results {
+  position: absolute; top: 48px; left: 0;
+  width: min(620px, calc(100vw - 32px)); max-height: min(72vh, 580px); overflow: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 6px;
+}
+.results .grp { font: 600 11.5px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 12px 12px 6px; }
+.res {
+  display: block; width: 100%; text-align: left; padding: 9px 12px; border: 0; border-radius: 8px;
+  background: none; cursor: pointer;
+}
+.res.sel, .res:hover { background: var(--surface-2); }
+.res .t { display: block; font-weight: 700; }
+.res .w { display: block; font-size: 13px; color: var(--muted); }
+.res .s { display: block; font-size: 14.5px; color: var(--muted); line-height: 1.45; margin-top: 2px; }
+.res code { font: 600 14px var(--f-mono); color: var(--accent); }
+.results .empty { padding: 14px 12px; color: var(--muted); }
+mark { background: var(--hit); color: var(--hit-fg); border-radius: 3px; padding: 0 1px; }
+
+.progress { position: fixed; top: env(safe-area-inset-top, 0px); left: 0; right: 0; height: 3px; z-index: 31; pointer-events: none; }
+.progress span { display: block; height: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(0); }
+
+/* ---------- Struttura ---------- */
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); }
+.sidebar {
+  position: sticky; top: calc(var(--top) + env(safe-area-inset-top, 0px));
+  height: calc(100dvh - var(--top) - env(safe-area-inset-top, 0px));
+  overflow-y: auto; overscroll-behavior: contain;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 14px;
+  border-right: 1px solid var(--line); background: var(--bg);
+  font-size: 15px;
+}
+.toc-part {
+  margin: 22px 0 6px; padding-left: 10px;
+  font: 600 11.5px/1.2 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+.toc-part:first-child { margin-top: 0; }
+.toc a { display: block; text-decoration: none; color: var(--fg); border-radius: 8px; }
+.toc-chap { display: flex !important; gap: 10px; padding: 6px 10px; font-weight: 700; line-height: 1.35; }
+.toc-chap .n { flex: none; width: 1.6em; color: var(--accent); font-variant-numeric: tabular-nums; }
+.toc-secs { display: none; margin: 2px 0 8px; padding-left: 30px; }
+.toc-group.open .toc-secs { display: block; }
+.toc-secs a { padding: 4px 10px; color: var(--muted); line-height: 1.35; font-size: 14.5px; }
+.toc a:hover { background: var(--surface-2); color: var(--fg); }
+.toc a.active { background: var(--accent-soft); color: var(--accent); }
+
+.main {
+  min-width: 0;
+  padding-block: 8px 120px;
+  padding-left: max(40px, env(safe-area-inset-left, 0px));
+  padding-right: max(40px, env(safe-area-inset-right, 0px));
+}
+.doc { max-width: 46rem; margin: 0 auto; }
+.doc > hr { display: none; }
+.doc [id], .doc .code { scroll-margin-top: calc(var(--top) + env(safe-area-inset-top, 0px) + 20px); }
+
+/* ---------- Tipografia del manuale ---------- */
+.doc p, .doc li { max-width: 70ch; }
+.doc ul, .doc ol { padding-left: 1.4em; }
+.doc li { margin: 4px 0; }
+.doc li > p { margin: 6px 0; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.2; }
+.hero { padding-block: 44px 8px; }
+.hero h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 700; margin: 0 0 6px; letter-spacing: -.01em; }
+.hero .edition { margin: 0 0 22px; font: 600 13px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.hero .edition em { font-style: normal; }
+.hero p { font-size: 18.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  color: var(--fg); text-decoration: none; font-weight: 700; font-size: 15px; cursor: pointer;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.chip.primary:hover { color: var(--surface); filter: brightness(1.08); }
+
+h1.part {
+  margin: 96px 0 0; padding: 22px 24px; border-radius: 14px;
+  background: var(--surface-2); font-size: 30px; font-weight: 700;
+}
+h1.part .lbl { display: block; margin-bottom: 6px; font: 600 12px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.doc h2 {
+  display: flex; align-items: baseline; gap: 14px;
+  margin: 64px 0 18px; padding-top: 26px; border-top: 1px solid var(--line);
+  font-size: 30px; font-weight: 700;
+}
+h1.part + h2 { border-top: 0; margin-top: 28px; }
+.doc h2 .num { flex: none; font-size: 1.35em; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }
+.doc h3 { margin: 40px 0 10px; font-size: 21.5px; font-weight: 700; }
+.doc h2 code, .doc h3 code { font-size: .85em; }
+.doc strong { font-weight: 700; }
+
+:not(pre) > code {
+  font-family: var(--f-mono); font-size: .86em; padding: .08em .38em; border-radius: 5px;
+  background: var(--surface-2); overflow-wrap: anywhere;
+}
+
+/* ---------- Blocchi di codice ---------- */
+.code { margin: 16px 0; border-radius: 10px; overflow: hidden; }
+.code pre { margin: 0; padding: 14px 16px; overflow-x: auto; font: 14.5px/1.6 var(--f-mono); tab-size: 4; }
+.code pre code { font: inherit; background: none; padding: 0; }
+.code.is-cmd { background: var(--code-bg); color: var(--code-fg); }
+.code.is-cmd .c { color: var(--code-dim); font-style: italic; }
+.code .bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 5px 8px 5px 14px; background: var(--code-bar); color: var(--code-dim);
+  font: 600 11.5px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase;
+}
+.copy {
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--code-dim); background: transparent; color: var(--code-fg);
+  font: 600 12px/1 var(--f-mono); letter-spacing: .04em;
+}
+.copy:hover { border-color: var(--code-fg); }
+.code.is-adapt .bar span { color: var(--code-adapt); }
+.adapt-note { padding: 2px 14px 10px; background: var(--code-bar); color: var(--code-fg); font: 14.5px/1.45 var(--f-body); }
+.adapt-note strong { color: var(--code-adapt); }
+.tag {
+  display: inline-block; margin-right: 6px; padding: 0 7px; border-radius: 999px;
+  border: 1px solid var(--warn-line); background: var(--warn-bg); color: var(--warn);
+  font: 600 10.5px/1.6 var(--f-mono); letter-spacing: .05em; text-transform: uppercase; vertical-align: 1px;
+}
+.code.is-out { background: var(--out-bg); color: var(--out-fg); border: 1px solid var(--line); }
+.callout .code.is-out { background: var(--surface); }
+
+/* ---------- Tabelle ---------- */
+.table-wrap { overflow-x: auto; margin: 18px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.table-wrap table { border-collapse: collapse; width: 100%; font-size: 15.5px; line-height: 1.5; }
+.table-wrap th, .table-wrap td { padding: 9px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.table-wrap th { background: var(--surface-2); font-weight: 700; }
+.table-wrap th, .table-wrap td { min-width: 8.5rem; }
+.table-wrap th[align="center"], .table-wrap td[align="center"] { min-width: 4rem; }
+.table-wrap tr:last-child td { border-bottom: 0; }
+.table-wrap td[align="center"], .table-wrap th[align="center"] { text-align: center; }
+
+/* ---------- Riquadri ---------- */
+.doc blockquote { margin: 20px 0; padding: 2px 18px; border-left: 3px solid var(--line); color: var(--muted); }
+.callout { padding: 12px 18px !important; border: 1px solid; border-radius: 12px; color: var(--fg) !important; }
+.callout > p:first-child { margin-top: 2px; }
+.callout > :last-child { margin-bottom: 2px; }
+.callout .table-wrap { background: var(--surface); }
+.callout.tip { background: var(--tip-bg); border-color: var(--tip-line); }
+.callout.warn { background: var(--warn-bg); border-color: var(--warn-line); }
+.callout.danger { background: var(--danger-bg); border-color: var(--danger-line); }
+.callout.mac { background: var(--mac-bg); border-color: var(--mac-line); }
+.callout.tip > p:first-child > strong:first-child { color: var(--tip); }
+.callout.warn > p:first-child > strong:first-child { color: var(--warn); }
+.callout.danger > p:first-child > strong:first-child { color: var(--danger); }
+.callout.mac > p:first-child > strong:first-child { color: var(--mac); }
+.flag { list-style: none; position: relative; }
+.flag::before { content: ""; position: absolute; left: -1.1em; top: .62em; width: .55em; height: .55em; border-radius: 50%; }
+.flag.danger::before { background: var(--danger); }
+.flag.warn::before { background: var(--warn); }
+.flag.tip::before { background: var(--tip); }
+
+/* ---------- Esercizi ---------- */
+.exercise {
+  margin: 36px 0; padding: 4px 22px 14px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.exercise h3 { margin-top: 16px; font-size: 19px; }
+.exercise h3::before {
+  content: "Esercizio"; display: block; margin-bottom: 4px;
+  font: 600 11.5px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent);
+}
+.exercise details { margin-top: 6px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.exercise summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+.exercise details ol { margin-bottom: 4px; }
+
+/* ---------- Indice iniziale ---------- */
+.index-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr)); gap: 14px; margin: 10px 0 8px; }
+.index-card { min-width: 0; padding: 14px 16px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.index-card > p { margin: 0 0 6px; font: 600 12px/1.3 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.index-card > p strong { font-weight: 600; }
+.index-card ol { margin: 0; padding-left: 1.6em; font-size: 15.5px; }
+.index-card li { margin: 3px 0; }
+.index-card li::marker { color: var(--muted); font-variant-numeric: tabular-nums; }
+.index-card a { color: var(--fg); text-decoration: none; }
+.index-card a:hover { color: var(--accent); text-decoration: underline; }
+.index-extra { margin: 4px 0 0; font-size: 15.5px; }
+
+/* ---------- Pannello comandi ---------- */
+.panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+  width: min(480px, 100%); display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow);
+}
+.panel-head {
+  display: grid; gap: 10px; padding-block: 16px 12px; border-bottom: 1px solid var(--line);
+  padding-left: 18px; padding-right: max(18px, env(safe-area-inset-right, 0px));
+}
+.panel-head .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.panel-head h2 { margin: 0; font: 700 22px/1.2 var(--f-display); }
+.panel-head input {
+  width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); color: var(--fg); font: 16px var(--f-body);
+}
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg button {
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  cursor: pointer; font-size: 14px; font-weight: 700;
+}
+.seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.panel-head .count { font-size: 13px; color: var(--muted); }
+.panel-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding-left: 10px; padding-right: max(10px, env(safe-area-inset-right, 0px)); padding-bottom: 30px; }
+.cmd-grp { position: sticky; top: 0; z-index: 1; padding: 12px 8px 6px; background: var(--surface); font: 600 11.5px/1.3 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cmd-row { display: flex; gap: 6px; align-items: flex-start; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.cmd-row .jump { flex: 1; min-width: 0; text-align: left; padding: 7px 8px; border: 0; border-radius: 8px; background: none; cursor: pointer; }
+.cmd-row .jump:hover { background: var(--surface-2); }
+.cmd-row code { display: block; font: 600 14px/1.45 var(--f-mono); color: var(--accent); overflow-wrap: anywhere; background: none; padding: 0; }
+.cmd-row .d { display: block; font-size: 15px; line-height: 1.4; margin-top: 2px; }
+.cmd-row .w { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.cmd-row .copy-sm {
+  flex: none; margin-top: 7px; padding: 5px 9px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); font: 600 12px/1 var(--f-mono); color: var(--muted);
+}
+.cmd-row .copy-sm:hover { color: var(--accent); border-color: var(--accent); }
+.scrim { position: fixed; inset: 0; z-index: 45; background: rgba(10, 14, 22, .45); }
+
+.totop {
+  position: fixed; z-index: 20;
+  right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--surface); box-shadow: var(--shadow); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.totop svg { width: 20px; height: 20px; }
+
+.flash { animation: flash 1.8s ease-out; border-radius: 10px; }
+@keyframes flash { 0%, 30% { box-shadow: 0 0 0 4px var(--hit); } 100% { box-shadow: 0 0 0 4px transparent; } }
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; outline: 3px solid var(--hit); } }
+
+/* ---------- Schermi stretti ---------- */
+@media (max-width: 960px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  #menuBtn { display: inline-flex; }
+  .brand { width: auto; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; height: auto;
+    width: min(330px, 88vw); padding-top: calc(20px + env(safe-area-inset-top, 0px));
+    transform: translateX(-102%); transition: transform .22s ease; box-shadow: var(--shadow);
+    background: var(--surface);
+  }
+  .sidebar.open { transform: none; }
+  .main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+}
+@media (max-width: 640px) {
+  .brand small, .search kbd, .cmd-label { display: none; }
+  .brand { font-size: 17px; }
+  .topbar { gap: 8px; }
+  .doc h2 { font-size: 25px; gap: 10px; }
+  h1.part { font-size: 25px; padding: 18px; }
+  .exercise { padding: 4px 16px 12px; }
+  .code pre { font-size: 13.5px; }
+}
+@media (prefers-reduced-motion: reduce) { .sidebar { transition: none; } }
+</style>
+<!--BODY-->
+<div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+<header class="topbar">
+  <button class="icon-btn" id="menuBtn" type="button" aria-label="Apri l'indice" aria-controls="toc" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <a class="brand" href="#inizio">Linux da zero <small>Debian</small></a>
+  <div class="search" role="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Cerca un comando o un argomento…" aria-label="Cerca nel manuale" aria-controls="results">
+    <kbd>/</kbd>
+    <div class="results" id="results" role="listbox" hidden></div>
+  </div>
+  <button class="icon-btn" id="cmdBtn" type="button" aria-controls="cmdPanel" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 4 4-4 4M12 17h7"/></svg>
+    <span class="cmd-label">Comandi</span>
+  </button>
+</header>
+<div class="layout">
+  <nav class="sidebar" id="toc" aria-label="Indice del manuale"><div class="toc" id="tocInner"></div></nav>
+  <main class="main" id="inizio">
+    <article class="doc" id="doc">
+<!--CONTENT-->
+    </article>
+  </main>
+</div>
+<aside class="panel" id="cmdPanel" aria-label="Elenco dei comandi" hidden>
+  <div class="panel-head">
+    <div class="row">
+      <h2>Trova un comando</h2>
+      <button class="icon-btn" id="cmdClose" type="button" aria-label="Chiudi l'elenco dei comandi">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <input id="cmdFilter" type="search" autocomplete="off" spellcheck="false" placeholder="Filtra: copiare, ls, password, zip…" aria-label="Filtra i comandi">
+    <div class="row">
+      <div class="seg" role="group" aria-label="Tipo di elenco">
+        <button type="button" id="segTask" aria-pressed="true">Cosa voglio fare?</button>
+        <button type="button" id="segAll" aria-pressed="false">Tutti i comandi</button>
+      </div>
+      <span class="count" id="cmdCount"></span>
+    </div>
+  </div>
+  <div class="panel-body" id="cmdList"></div>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
+<button class="totop" id="toTop" type="button" aria-label="Torna all'inizio" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+</button>
+
+<script>
+(() => {
+  const doc = document.getElementById('doc');
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // Minuscole e senza accenti, mantenendo la stessa lunghezza del testo originale
+  const norm = (s) => {
+    let o = '';
+    for (const ch of s.toLowerCase()) {
+      const d = ch.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      o += d.length === 1 ? d : ch;
+    }
+    return o;
+  };
+  const slug = (s) => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+  const EMOJI = /^\s*(\p{Extended_Pictographic}️?)\s*/u;
+  const KIND = { '💡': 'tip', '⚠': 'warn', '🛑': 'danger', '🍎': 'mac' };
+  const kindOf = (t) => { const m = t.trimStart().match(EMOJI); return m ? KIND[m[1].replace('️', '')] : null; };
+  const stripLead = (el) => {
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = w.nextNode())) {
+      if (!n.nodeValue.trim()) continue;
+      n.nodeValue = n.nodeValue.replace(EMOJI, '');
+      return;
+    }
+  };
+  const copyText = (text, btn, done) => {
+    const ok = () => { const t = btn.textContent; btn.textContent = done; setTimeout(() => (btn.textContent = t), 1400); };
+    const fallback = () => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); ok(); } catch (e) { /* lascia il testo selezionabile */ }
+      ta.remove();
+    };
+    try { navigator.clipboard.writeText(text).then(ok, fallback); } catch (e) { fallback(); }
+  };
+
+  /* ---- Copertina ---- */
+  const hero = document.createElement('header');
+  hero.className = 'hero';
+  let n = doc.firstElementChild;
+  doc.insertBefore(hero, n);
+  while (n && n.tagName !== 'HR') { const next = n.nextElementSibling; hero.appendChild(n); n = next; }
+  if (n) n.remove();
+  const ed = hero.querySelector('h1 + p');
+  if (ed) ed.className = 'edition';
+  const chips = document.createElement('div');
+  chips.className = 'chips';
+  chips.innerHTML =
+    '<a class="chip primary" href="#cap-1">Inizia dal capitolo 1</a>' +
+    '<a class="chip" href="#cap-6">Sessione guidata</a>' +
+    '<button class="chip" type="button" data-open-cmds>Elenco dei comandi</button>' +
+    '<a class="chip" href="#sez-1-4">Tasti su Mac</a>' +
+    '<a class="chip" href="#cap-15">Quando qualcosa va storto</a>';
+  hero.appendChild(chips);
+
+  /* ---- Titoli e ancore ---- */
+  let chap = null, part = 0;
+  doc.querySelectorAll('h1, h2, h3').forEach((h) => {
+    if (h.closest('.hero')) return;
+    const t = h.textContent.trim();
+    if (h.tagName === 'H1') {
+      part++;
+      h.id = 'parte-' + part;
+      h.classList.add('part');
+      const [lbl, ...rest] = h.innerHTML.split(' — ');
+      if (rest.length) h.innerHTML = `<span class="lbl">${lbl}</span>${rest.join(' — ')}`;
+    } else if (h.tagName === 'H2') {
+      const m = t.match(/^(\d+)\.\s/);
+      if (m) {
+        chap = m[1];
+        h.id = 'cap-' + chap;
+        h.innerHTML = `<span class="num">${chap}</span><span class="ttl">${h.innerHTML.replace(/^\s*\d+\.\s+/, '')}</span>`;
+      } else {
+        chap = t.startsWith('Appendice') ? 'A' : null;
+        h.id = t.startsWith('Appendice') ? 'appendice' : slug(t);
+        h.innerHTML = `<span class="ttl">${h.innerHTML}</span>`;
+      }
+    } else {
+      const m = t.match(/^(\d+)\.(\d+)\s/);
+      if (m) h.id = `sez-${m[1]}-${m[2]}`;
+      else if (/Mettiti alla prova/.test(t)) h.id = 'esercizi-' + chap;
+      else h.id = (chap ? chap + '-' : '') + slug(t);
+    }
+  });
+
+  /* ---- Indice iniziale cliccabile ---- */
+  const idx = $('indice');
+  if (idx) {
+    const grid = document.createElement('div');
+    grid.className = 'index-grid';
+    let card = null, el = idx.nextElementSibling;
+    const extra = [];
+    while (el && el.tagName !== 'HR' && el.tagName !== 'H1' && el.tagName !== 'H2') {
+      const next = el.nextElementSibling;
+      if (el.tagName === 'P' && next && next.tagName === 'OL') {
+        card = document.createElement('div'); card.className = 'index-card'; grid.appendChild(card); card.appendChild(el);
+      } else if (el.tagName === 'OL' && card) {
+        const start = parseInt(el.getAttribute('start') || '1', 10);
+        [...el.children].forEach((li, i) => { li.innerHTML = `<a href="#cap-${start + i}">${li.innerHTML}</a>`; });
+        card.appendChild(el);
+      } else { extra.push(el); }
+      el = next;
+    }
+    idx.after(grid);
+    extra.forEach((p) => {
+      if (/Appendice/.test(p.textContent)) { p.className = 'index-extra'; p.innerHTML = `<a href="#appendice">${p.innerHTML}</a>`; }
+      grid.after(p);
+    });
+  }
+
+  /* ---- Tabelle scorrevoli ---- */
+  doc.querySelectorAll('table').forEach((t) => {
+    const w = document.createElement('div'); w.className = 'table-wrap';
+    t.before(w); w.appendChild(t);
+  });
+
+  /* ---- Blocchi di codice ---- */
+  doc.querySelectorAll('pre > code').forEach((code) => {
+    const pre = code.parentElement;
+    const lang = (code.className.match(/language-(\w+)/) || [])[1] || 'text';
+    let raw = code.textContent.replace(/\n$/, '');
+    const box = document.createElement('div');
+    pre.before(box); box.appendChild(pre);
+    if (lang === 'bash') {
+      // Tre tipi di blocco: da provare, da adattare (primo commento "# Da adattare:"), contenuto di uno script
+      const lines = raw.split('\n');
+      const adapt = lines[0].match(/^#\s*Da adattare:\s*(.*)$/);
+      let kind = 'try';
+      if (adapt) { kind = 'adapt'; lines.shift(); raw = lines.join('\n'); }
+      else if (lines[0].startsWith('#!')) kind = 'file';
+      box.className = 'code is-cmd' + (kind === 'adapt' ? ' is-adapt' : '');
+      box.dataset.raw = raw;
+      box.dataset.kind = kind;
+      code.innerHTML = raw.split('\n').map((l) => (/^\s*#(?!!)/.test(l) ? `<span class="c">${esc(l)}</span>` : esc(l))).join('\n');
+      const label = { try: 'Prova nel terminale', adapt: 'Esempio da adattare', file: 'Contenuto del file' }[kind];
+      const done = kind === 'adapt' ? 'Copiato: ora adattalo' : 'Copiato';
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.innerHTML = `<span>${label}</span><button class="copy" type="button">Copia</button>`;
+      bar.querySelector('button').addEventListener('click', (e) => copyText(raw, e.currentTarget, done));
+      box.prepend(bar);
+      if (adapt) {
+        const note = document.createElement('div');
+        note.className = 'adapt-note';
+        note.innerHTML = `<strong>Da adattare:</strong> ${esc(adapt[1])}`;
+        bar.after(note);
+      }
+    } else {
+      box.className = 'code is-out';
+    }
+  });
+
+  /* ---- Riquadri colorati ---- */
+  doc.querySelectorAll('blockquote').forEach((bq) => {
+    const p = bq.firstElementChild;
+    if (!p) return;
+    const k = kindOf(p.textContent);
+    if (!k) return;
+    bq.classList.add('callout', k);
+    stripLead(p);
+  });
+  doc.querySelectorAll('li').forEach((li) => {
+    const k = kindOf(li.textContent);
+    if (k && k !== 'mac') { li.classList.add('flag', k); stripLead(li); }
+  });
+
+  /* ---- Esercizi con soluzioni a scomparsa ---- */
+  const solutions = {};
+  const app = $('appendice');
+  if (app) {
+    let el = app.nextElementSibling;
+    while (el && !/^H[12]$/.test(el.tagName)) {
+      const m = el.tagName === 'P' && el.textContent.trim().match(/^Capitolo (\d+)$/);
+      if (m && el.nextElementSibling && el.nextElementSibling.tagName === 'OL') solutions[m[1]] = el.nextElementSibling;
+      el = el.nextElementSibling;
+    }
+  }
+  doc.querySelectorAll('h3[id^="esercizi-"]').forEach((h) => {
+    stripLead(h);
+    const box = document.createElement('div');
+    box.className = 'exercise';
+    h.before(box); box.appendChild(h);
+    const list = box.nextElementSibling;
+    if (list && list.tagName === 'OL') box.appendChild(list);
+    const sol = solutions[h.id.split('-')[1]];
+    if (sol) {
+      const d = document.createElement('details');
+      d.innerHTML = '<summary>Mostra le soluzioni</summary>';
+      d.appendChild(sol.cloneNode(true));
+      box.appendChild(d);
+    }
+  });
+
+  /* ---- Sezioni per la ricerca ---- */
+  const sections = [];
+  let cur = null, curChap = null;
+  for (const el of doc.children) {
+    if (el.classList.contains('hero')) { cur = { id: 'inizio', title: 'Introduzione', chap: null, els: [el], target: el }; sections.push(cur); continue; }
+    if (el.matches('h1.part')) { cur = null; continue; }
+    if (el.tagName === 'H2') {
+      curChap = { id: el.id, num: el.querySelector('.num')?.textContent || '', title: el.querySelector('.ttl')?.textContent || el.textContent };
+      cur = { id: el.id, title: curChap.title, chap: curChap, els: [el], target: el };
+      sections.push(cur); continue;
+    }
+    const h3 = el.tagName === 'H3' ? el : (el.classList.contains('exercise') ? el.querySelector('h3') : null);
+    if (h3) { cur = { id: h3.id, title: h3.textContent.trim(), chap: curChap, els: [el], target: el }; sections.push(cur); continue; }
+    if (cur) cur.els.push(el);
+  }
+  const where = (s) => s.chap ? (s.chap.num ? `Cap. ${s.chap.num} · ${s.chap.title}` : s.chap.title) : 'Inizio';
+  // Testo leggibile di un blocco, senza etichette e pulsanti aggiunti dalla pagina
+  const textOf = (e) => {
+    const c = e.cloneNode(true);
+    c.querySelectorAll('.bar, button, summary, .chips').forEach((x) => x.remove());
+    return c.textContent;
+  };
+  sections.forEach((s) => {
+    s.text = s.els.map(textOf).join(' ').replace(/\s+/g, ' ').trim();
+    s.ntext = norm(s.text);
+    s.ntitle = norm(s.title);
+  });
+
+  /* ---- Elenco dei comandi ---- */
+  const cmds = [];
+  const sectionOf = new Map();
+  sections.forEach((s) => s.els.forEach((e) => {
+    if (e.matches && e.matches('.code.is-cmd')) sectionOf.set(e, s);
+    e.querySelectorAll && e.querySelectorAll('.code.is-cmd').forEach((c) => sectionOf.set(c, s));
+  }));
+  doc.querySelectorAll('.code.is-cmd').forEach((box) => {
+    const raw = box.dataset.raw || '';
+    if (box.dataset.kind === 'file') return;
+    const adaptBlock = box.dataset.kind === 'adapt';
+    const s = sectionOf.get(box);
+    if (!s || s.chap?.num === '16') return;
+    let note = '';
+    const seen = new Set();
+    raw.split('\n').forEach((line) => {
+      const l = line.trim();
+      if (!l) return;
+      if (l.startsWith('#')) { note = l.replace(/^#+\s*/, '').replace(/^\d+\.\s*/, ''); return; }
+      if (seen.has(l)) return;
+      seen.add(l);
+      cmds.push({ cmd: l, desc: note || s.title.replace(/^\d+\.\d+\s*/, ''), sec: s, el: box, adapt: adaptBlock || /<[^>]+>/.test(l) });
+      note = '';
+    });
+  });
+  const tasks = [];
+  const sumTable = $('cap-16') && sections.find((s) => s.id === 'cap-16')?.els.map((e) => e.querySelector && e.querySelector('table')).find(Boolean);
+  if (sumTable) {
+    const s16 = sections.find((s) => s.id === 'cap-16');
+    sumTable.querySelectorAll('tbody tr').forEach((tr) => {
+      const td = tr.children;
+      if (td.length < 2) return;
+      const codeEl = td[1].querySelector('code');
+      tasks.push({
+        cmd: td[1].textContent.trim(),
+        copy: codeEl ? codeEl.textContent : null,
+        desc: 'Voglio ' + td[0].textContent.trim(),
+        note: td[2] ? td[2].textContent.trim() : '',
+        sec: s16, el: tr,
+        adapt: /<[^>]+>/.test(td[1].textContent),
+      });
+    });
+  }
+
+  /* ---- Indice laterale ---- */
+  const tocInner = $('tocInner');
+  const tocLinks = new Map();
+  let group = null;
+  const tocLink = (id, html, cls) => {
+    const a = document.createElement('a');
+    a.href = '#' + id; a.innerHTML = html; if (cls) a.className = cls;
+    tocLinks.set(id, a);
+    return a;
+  };
+  [...doc.querySelectorAll('h1.part, h2, h3')].forEach((h) => {
+    if (h.closest('.hero')) return;
+    if (h.tagName === 'H1') {
+      const d = document.createElement('div'); d.className = 'toc-part';
+      d.textContent = h.textContent.replace(/^(Parte [IVX]+)/, '$1 · ');
+      tocInner.appendChild(d); return;
+    }
+    if (h.tagName === 'H2') {
+      group = document.createElement('div'); group.className = 'toc-group';
+      const num = h.querySelector('.num')?.textContent || '';
+      const ttl = h.querySelector('.ttl')?.innerHTML || h.innerHTML;
+      group.appendChild(tocLink(h.id, `<span class="n">${num || '·'}</span><span>${ttl}</span>`, 'toc-chap'));
+      const secs = document.createElement('div'); secs.className = 'toc-secs';
+      group.appendChild(secs);
+      tocInner.appendChild(group); return;
+    }
+    if (h.id.startsWith('esercizi-') || !group) return;
+    group.querySelector('.toc-secs').appendChild(tocLink(h.id, h.innerHTML));
+  });
+  tocInner.querySelectorAll('.toc-group').forEach((g) => { if (!g.querySelector('.toc-secs').children.length) g.querySelector('.toc-secs').remove(); });
+
+  /* ---- Pannelli: indice (mobile) e comandi ---- */
+  const sidebar = $('toc'), scrim = $('scrim'), panel = $('cmdPanel');
+  const isNarrow = () => matchMedia('(max-width: 960px)').matches;
+  const syncScrim = () => { scrim.hidden = !(panel.hidden === false || (isNarrow() && sidebar.classList.contains('open'))); };
+  const setMenu = (open) => { sidebar.classList.toggle('open', open); $('menuBtn').setAttribute('aria-expanded', String(open)); syncScrim(); };
+  const setPanel = (open) => {
+    panel.hidden = !open; $('cmdBtn').setAttribute('aria-expanded', String(open)); syncScrim();
+    if (open) { renderCmds(); setTimeout(() => $('cmdFilter').focus(), 30); }
+  };
+  $('menuBtn').addEventListener('click', () => setMenu(!sidebar.classList.contains('open')));
+  $('cmdBtn').addEventListener('click', () => setPanel(panel.hidden));
+  $('cmdClose').addEventListener('click', () => setPanel(false));
+  scrim.addEventListener('click', () => { setMenu(false); setPanel(false); });
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-open-cmds]')) setPanel(true); });
+  sidebar.addEventListener('click', (e) => { if (e.target.closest('a') && isNarrow()) setMenu(false); });
+
+  /* ---- Evidenziazione e salto ---- */
+  const clearHits = () => doc.querySelectorAll('mark.hit').forEach((m) => m.replaceWith(document.createTextNode(m.textContent)));
+  const ranges = (text, terms) => {
+    const nt = norm(text), out = [];
+    terms.forEach((t) => { let i = nt.indexOf(t); while (i > -1 && t) { out.push([i, i + t.length]); i = nt.indexOf(t, i + t.length); } });
+    out.sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    out.forEach((r) => { const last = merged[merged.length - 1]; if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]); else merged.push(r.slice()); });
+    return merged;
+  };
+  const hl = (text, terms) => {
+    let html = '', pos = 0;
+    ranges(text, terms).forEach(([a, b]) => { html += esc(text.slice(pos, a)) + '<mark>' + esc(text.slice(a, b)) + '</mark>'; pos = b; });
+    return html + esc(text.slice(pos));
+  };
+  const markIn = (els, terms) => {
+    clearHits();
+    if (!terms.length) return;
+    els.forEach((root) => {
+      const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: (t) => (t.parentElement.closest('button, summary, .bar') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      });
+      const nodes = [];
+      while (w.nextNode()) nodes.push(w.currentNode);
+      nodes.forEach((t) => {
+        const r = ranges(t.nodeValue, terms);
+        if (!r.length) return;
+        const frag = document.createDocumentFragment();
+        let pos = 0;
+        r.forEach(([a, b]) => {
+          frag.appendChild(document.createTextNode(t.nodeValue.slice(pos, a)));
+          const m = document.createElement('mark'); m.className = 'hit'; m.textContent = t.nodeValue.slice(a, b);
+          frag.appendChild(m); pos = b;
+        });
+        frag.appendChild(document.createTextNode(t.nodeValue.slice(pos)));
+        t.replaceWith(frag);
+      });
+    });
+  };
+  const goTo = (el, sec, terms) => {
+    setPanel(false); setMenu(false); hideResults();
+    const details = el.closest('details');
+    if (details) details.open = true;
+    if (sec && terms) markIn(sec.els, terms); else clearHits();
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1900);
+  };
+
+  /* ---- Ricerca ---- */
+  const q = $('q'), results = $('results');
+  let hits = [], sel = -1;
+  const termsOf = (v) => norm(v).trim().split(/\s+/).filter(Boolean);
+  const hideResults = () => { results.hidden = true; sel = -1; };
+  const snippet = (s, terms) => {
+    const first = Math.min(...terms.map((t) => { const i = s.ntext.indexOf(t); return i < 0 ? Infinity : i; }));
+    if (!isFinite(first)) return esc(s.text.slice(0, 150)) + (s.text.length > 150 ? '…' : '');
+    const a = Math.max(0, first - 60), b = Math.min(s.text.length, first + 130);
+    return (a > 0 ? '…' : '') + hl(s.text.slice(a, b), terms) + (b < s.text.length ? '…' : '');
+  };
+  const runSearch = () => {
+    const terms = termsOf(q.value);
+    if (!terms.length) { hideResults(); clearHits(); return; }
+    const cmdHits = [...tasks, ...cmds].filter((c) => { const t = norm(c.cmd + ' ' + c.desc); return terms.every((x) => t.includes(x)); }).slice(0, 6);
+    const secHits = sections.map((s) => {
+      let score = 0;
+      for (const t of terms) {
+        const inTitle = s.ntitle.includes(t);
+        let c = 0, i = s.ntext.indexOf(t);
+        while (i > -1 && c < 25) { c++; i = s.ntext.indexOf(t, i + t.length); }
+        if (!c && !inTitle) return null;
+        score += (inTitle ? 12 : 0) + c;
+      }
+      return { s, score };
+    }).filter(Boolean).sort((a, b) => b.score - a.score).slice(0, 14);
+    hits = [];
+    let html = '';
+    if (cmdHits.length) {
+      html += '<div class="grp">Comandi</div>';
+      cmdHits.forEach((c) => {
+        hits.push({ el: c.el.closest('.code, .table-wrap') || c.el, sec: c.sec, terms });
+        html += `<button class="res" type="button" role="option" data-i="${hits.length - 1}"><code>${hl(c.cmd, terms)}</code><span class="s">${hl(c.desc, terms)}</span><span class="w">${esc(where(c.sec))}</span></button>`;
+      });
+    }
+    if (secHits.length) {
+      html += '<div class="grp">Nel manuale</div>';
+      secHits.forEach(({ s }) => {
+        hits.push({ el: s.target, sec: s, terms });
+        html += `<button class="res" type="button" role="option" data-i="${hits.length - 1}"><span class="t">${hl(s.title, terms)}</span><span class="w">${esc(where(s))}</span><span class="s">${snippet(s, terms)}</span></button>`;
+      });
+    }
+    if (!hits.length) html = `<div class="empty">Nessun risultato per “${esc(q.value.trim())}”. Prova con una parola più corta o senza accenti.</div>`;
+    results.innerHTML = html;
+    results.hidden = false;
+    sel = -1;
+  };
+  let timer;
+  q.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(runSearch, 90); });
+  q.addEventListener('focus', () => { if (q.value.trim()) runSearch(); });
+  const select = (i) => {
+    const items = results.querySelectorAll('.res');
+    items.forEach((b) => b.classList.remove('sel'));
+    sel = Math.max(-1, Math.min(items.length - 1, i));
+    if (sel > -1) { items[sel].classList.add('sel'); items[sel].scrollIntoView({ block: 'nearest' }); }
+  };
+  q.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (results.hidden) runSearch(); select(sel + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); select(sel - 1); }
+    else if (e.key === 'Enter') { e.preventDefault(); const h = hits[sel > -1 ? sel : 0]; if (h) { goTo(h.el, h.sec, h.terms); q.blur(); } }
+    else if (e.key === 'Escape') { if (!results.hidden) hideResults(); else { q.value = ''; clearHits(); q.blur(); } }
+  });
+  results.addEventListener('click', (e) => { const b = e.target.closest('.res'); if (!b) return; const h = hits[+b.dataset.i]; goTo(h.el, h.sec, h.terms); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.search')) hideResults(); });
+
+  /* ---- Pannello comandi ---- */
+  const list = $('cmdList'), filter = $('cmdFilter');
+  let mode = 'task';
+  const row = (c, i, kind) => {
+    const copy = kind === 'task' ? c.copy : c.cmd;
+    const tag = c.adapt ? '<span class="tag">Da adattare</span>' : '';
+    return `<div class="cmd-row"><button class="jump" type="button" data-k="${kind}" data-i="${i}"><code>${esc(c.cmd)}</code><span class="d">${esc(c.desc)}${c.note ? ' — ' + esc(c.note) : ''}</span><span class="w">${tag}${esc(where(c.sec))}</span></button>${copy ? `<button class="copy-sm" type="button" data-copy="${esc(copy)}" data-adapt="${c.adapt ? 1 : 0}">Copia</button>` : ''}</div>`;
+  };
+  const renderCmds = () => {
+    const terms = termsOf(filter.value);
+    const match = (c) => { const t = norm(c.cmd + ' ' + c.desc + ' ' + (c.note || '') + ' ' + where(c.sec)); return terms.every((x) => t.includes(x)); };
+    let html = '', count = 0;
+    if (mode === 'task') {
+      tasks.forEach((c, i) => { if (match(c)) { html += row(c, i, 'task'); count++; } });
+    } else {
+      let last = null;
+      cmds.forEach((c, i) => {
+        if (!match(c)) return;
+        const g = where(c.sec);
+        if (g !== last) { html += `<div class="cmd-grp">${esc(g)}</div>`; last = g; }
+        html += row(c, i, 'cmd'); count++;
+      });
+    }
+    list.innerHTML = html || '<p style="padding:16px 8px;color:var(--muted)">Nessun comando corrisponde al filtro.</p>';
+    $('cmdCount').textContent = count === 1 ? '1 voce' : `${count} voci`;
+  };
+  filter.addEventListener('input', renderCmds);
+  const setMode = (m) => { mode = m; $('segTask').setAttribute('aria-pressed', String(m === 'task')); $('segAll').setAttribute('aria-pressed', String(m === 'all')); renderCmds(); };
+  $('segTask').addEventListener('click', () => setMode('task'));
+  $('segAll').addEventListener('click', () => setMode('all'));
+  list.addEventListener('click', (e) => {
+    const cp = e.target.closest('.copy-sm');
+    if (cp) { copyText(cp.dataset.copy, cp, cp.dataset.adapt === '1' ? 'Copiato: adattalo' : 'Copiato'); return; }
+    const j = e.target.closest('.jump');
+    if (!j) return;
+    const c = (j.dataset.k === 'task' ? tasks : cmds)[+j.dataset.i];
+    goTo(j.dataset.k === 'task' ? c.el : c.el, null, null);
+  });
+
+  /* ---- Tasti rapidi ---- */
+  document.addEventListener('keydown', (e) => {
+    const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+    if (e.key === '/' && !typing) { e.preventDefault(); q.focus(); q.select(); }
+    else if (e.key === 'Escape') { setPanel(false); setMenu(false); }
+  });
+
+  /* ---- Posizione di lettura: indice attivo, barra di avanzamento, torna su ---- */
+  const heads = [...doc.querySelectorAll('h2[id], h3[id]')].filter((h) => tocLinks.has(h.id) || h.id.startsWith('esercizi-'));
+  let activeId = null, ticking = false;
+  const onScroll = () => {
+    ticking = false;
+    const y = window.scrollY, max = document.documentElement.scrollHeight - innerHeight;
+    $('progressBar').style.transform = `scaleX(${max > 0 ? Math.min(1, y / max) : 0})`;
+    $('toTop').hidden = y < 900;
+    let cur = null;
+    for (const h of heads) { if (h.getBoundingClientRect().top < 140) cur = h; else break; }
+    let id = cur ? cur.id : null;
+    if (id && id.startsWith('esercizi-')) { const i = heads.indexOf(cur); for (let k = i; k >= 0; k--) if (tocLinks.has(heads[k].id)) { id = heads[k].id; break; } }
+    if (id === activeId) return;
+    activeId = id;
+    tocInner.querySelectorAll('a.active').forEach((a) => a.classList.remove('active'));
+    tocInner.querySelectorAll('.toc-group.open').forEach((g) => g.classList.remove('open'));
+    const a = id && tocLinks.get(id);
+    if (a) {
+      a.classList.add('active');
+      const g = a.closest('.toc-group');
+      if (g) { g.classList.add('open'); g.querySelector('.toc-chap').classList.add('active'); }
+      const r = a.getBoundingClientRect(), sr = sidebar.getBoundingClientRect();
+      if (!isNarrow() && (r.top < sr.top + 40 || r.bottom > sr.bottom - 40)) sidebar.scrollTop += r.top - sr.top - sr.height / 3;
+    }
+  };
+  addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  addEventListener('resize', () => { syncScrim(); onScroll(); });
+  $('toTop').addEventListener('click', () => scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }));
+
+  if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+  onScroll();
+})();
+</script>
